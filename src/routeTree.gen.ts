@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppSendRouteImport } from './routes/_authenticated/app.send'
 import { Route as AuthenticatedAppHistoryRouteImport } from './routes/_authenticated/app.history'
 import { Route as AuthenticatedAppFundRouteImport } from './routes/_authenticated/app.fund'
+import { Route as AuthenticatedAppAdminRouteImport } from './routes/_authenticated/app.admin'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -57,11 +58,17 @@ const AuthenticatedAppFundRoute = AuthenticatedAppFundRouteImport.update({
   path: '/fund',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppAdminRoute = AuthenticatedAppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
+  '/app/admin': typeof AuthenticatedAppAdminRoute
   '/app/fund': typeof AuthenticatedAppFundRoute
   '/app/history': typeof AuthenticatedAppHistoryRoute
   '/app/send': typeof AuthenticatedAppSendRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/app/admin': typeof AuthenticatedAppAdminRoute
   '/app/fund': typeof AuthenticatedAppFundRoute
   '/app/history': typeof AuthenticatedAppHistoryRoute
   '/app/send': typeof AuthenticatedAppSendRoute
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
+  '/_authenticated/app/admin': typeof AuthenticatedAppAdminRoute
   '/_authenticated/app/fund': typeof AuthenticatedAppFundRoute
   '/_authenticated/app/history': typeof AuthenticatedAppHistoryRoute
   '/_authenticated/app/send': typeof AuthenticatedAppSendRoute
@@ -92,18 +101,27 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/app'
+    | '/app/admin'
     | '/app/fund'
     | '/app/history'
     | '/app/send'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/app/fund' | '/app/history' | '/app/send' | '/app'
+  to:
+    | '/'
+    | '/auth'
+    | '/app/admin'
+    | '/app/fund'
+    | '/app/history'
+    | '/app/send'
+    | '/app'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/app'
+    | '/_authenticated/app/admin'
     | '/_authenticated/app/fund'
     | '/_authenticated/app/history'
     | '/_authenticated/app/send'
@@ -174,10 +192,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppFundRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/admin': {
+      id: '/_authenticated/app/admin'
+      path: '/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AuthenticatedAppAdminRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppAdminRoute: typeof AuthenticatedAppAdminRoute
   AuthenticatedAppFundRoute: typeof AuthenticatedAppFundRoute
   AuthenticatedAppHistoryRoute: typeof AuthenticatedAppHistoryRoute
   AuthenticatedAppSendRoute: typeof AuthenticatedAppSendRoute
@@ -185,6 +211,7 @@ interface AuthenticatedAppRouteChildren {
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppAdminRoute: AuthenticatedAppAdminRoute,
   AuthenticatedAppFundRoute: AuthenticatedAppFundRoute,
   AuthenticatedAppHistoryRoute: AuthenticatedAppHistoryRoute,
   AuthenticatedAppSendRoute: AuthenticatedAppSendRoute,
