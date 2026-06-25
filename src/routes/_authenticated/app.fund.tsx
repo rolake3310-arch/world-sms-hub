@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getPublicSettings } from "@/lib/sms.functions";
-import { submitCryptoDeposit, createSquadCheckout, verifySquadDeposit, getMyDeposits } from "@/lib/funding.functions";
-import { Bitcoin, CreditCard, Copy, CheckCircle2 } from "lucide-react";
+import { submitCryptoDeposit, submitBankDeposit, createSquadCheckout, verifySquadDeposit, getMyDeposits } from "@/lib/funding.functions";
+import { Bitcoin, CreditCard, Building2, Copy, CheckCircle2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/app/fund")({
   component: FundPage,
@@ -41,35 +42,47 @@ function FundPage() {
 
   const cryptoOn = data?.settings.crypto_enabled;
   const squadOn = data?.settings.squad_enabled;
-  const initial = cryptoOn ? "crypto" : squadOn ? "squad" : "crypto";
+  const bankOn = (data?.settings as any)?.bank_enabled;
+  const minFund = Number((data?.settings as any)?.min_fund_usd ?? 0);
+  const initial = cryptoOn ? "crypto" : bankOn ? "bank" : squadOn ? "squad" : "crypto";
 
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Fund your wallet</h1>
-        <p className="text-sm text-muted-foreground">Top up with crypto or card.</p>
+        <p className="text-sm text-muted-foreground">
+          Top up with crypto, bank transfer, or card.
+          {minFund > 0 && <> Minimum deposit: <span className="font-semibold text-foreground">${minFund.toFixed(2)}</span>.</>}
+        </p>
       </div>
 
-      {!cryptoOn && !squadOn && (
+      {!cryptoOn && !squadOn && !bankOn && (
         <Card className="p-5 text-sm text-muted-foreground">No funding methods are enabled. Contact support.</Card>
       )}
 
       <Tabs defaultValue={initial}>
         <TabsList>
           {cryptoOn && <TabsTrigger value="crypto"><Bitcoin className="mr-2 h-4 w-4" /> Crypto</TabsTrigger>}
+          {bankOn && <TabsTrigger value="bank"><Building2 className="mr-2 h-4 w-4" /> Bank transfer</TabsTrigger>}
           {squadOn && <TabsTrigger value="squad"><CreditCard className="mr-2 h-4 w-4" /> Squad (Card / Bank)</TabsTrigger>}
         </TabsList>
         {cryptoOn && (
           <TabsContent value="crypto">
-            <CryptoPanel wallets={data?.wallets ?? []} />
+            <CryptoPanel wallets={data?.wallets ?? []} minFund={minFund} />
+          </TabsContent>
+        )}
+        {bankOn && (
+          <TabsContent value="bank">
+            <BankPanel banks={(data as any)?.banks ?? []} instructions={(data?.settings as any)?.bank_instructions ?? ""} minFund={minFund} />
           </TabsContent>
         )}
         {squadOn && (
           <TabsContent value="squad">
-            <SquadPanel />
+            <SquadPanel minFund={minFund} />
           </TabsContent>
         )}
       </Tabs>
+
 
       <Card className="p-5">
         <h3 className="mb-3 font-semibold">Your deposits</h3>
