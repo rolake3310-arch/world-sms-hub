@@ -16,9 +16,12 @@ import {
   adminListDeposits, adminReviewDeposit,
   adminListUsers, adminAdjustBalance, adminSetUserStatus, adminSetUserRole,
   adminListMessages,
+  adminListBankAccounts, adminUpsertBankAccount, adminDeleteBankAccount,
 } from "@/lib/admin.functions";
+import { Textarea } from "@/components/ui/textarea";
 import { getCountryPrices } from "@/lib/sms.functions";
 import { ShieldAlert, Trash2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/app/admin")({
   component: AdminPage,
@@ -43,6 +46,7 @@ function AdminPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Funding & Pricing</TabsTrigger>
           <TabsTrigger value="wallets">Wallets</TabsTrigger>
+          <TabsTrigger value="banks">Bank accounts</TabsTrigger>
           <TabsTrigger value="countries">Country prices</TabsTrigger>
           <TabsTrigger value="deposits">Deposits</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -51,10 +55,12 @@ function AdminPage() {
         <TabsContent value="overview"><Overview /></TabsContent>
         <TabsContent value="settings"><SettingsPanel /></TabsContent>
         <TabsContent value="wallets"><WalletsPanel /></TabsContent>
+        <TabsContent value="banks"><BanksPanel /></TabsContent>
         <TabsContent value="countries"><CountriesPanel /></TabsContent>
         <TabsContent value="deposits"><DepositsPanel /></TabsContent>
         <TabsContent value="users"><UsersPanel /></TabsContent>
         <TabsContent value="messages"><MessagesPanel /></TabsContent>
+
       </Tabs>
     </div>
   );
@@ -94,10 +100,14 @@ function SettingsPanel() {
     mutationFn: () => save({ data: {
       crypto_enabled: !!f?.crypto_enabled,
       squad_enabled: !!f?.squad_enabled,
+      bank_enabled: !!f?.bank_enabled,
+      bank_instructions: f?.bank_instructions ?? null,
+      min_fund_usd: Number(f?.min_fund_usd ?? 0),
       default_price_usd: Number(f?.default_price_usd ?? 0.05),
       squad_public_key: f?.squad_public_key ?? null,
       squad_environment: f?.squad_environment ?? "sandbox",
     } }),
+
     onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
     onError: (e: any) => toast.error(e?.message),
   });
@@ -113,15 +123,32 @@ function SettingsPanel() {
       </div>
       <div className="flex items-center justify-between">
         <div>
+          <div className="font-semibold">Bank transfer</div>
+          <div className="text-xs text-muted-foreground">Show bank account(s) & manual approval</div>
+        </div>
+        <Switch checked={!!f.bank_enabled} onCheckedChange={(v) => setForm({ ...f, bank_enabled: v })} />
+      </div>
+      <div className="flex items-center justify-between">
+        <div>
           <div className="font-semibold">Squad (squadco.com)</div>
           <div className="text-xs text-muted-foreground">Card / bank checkout</div>
         </div>
         <Switch checked={!!f.squad_enabled} onCheckedChange={(v) => setForm({ ...f, squad_enabled: v })} />
       </div>
       <div>
+        <Label>Minimum funding amount (USD)</Label>
+        <Input type="number" step="0.01" value={f.min_fund_usd ?? 0} onChange={(e) => setForm({ ...f, min_fund_usd: e.target.value })} />
+        <p className="mt-1 text-xs text-muted-foreground">Applies to crypto, bank transfer, and Squad. Set 0 to disable.</p>
+      </div>
+      <div>
+        <Label>Bank transfer instructions (shown to users)</Label>
+        <Textarea rows={3} value={f.bank_instructions ?? ""} onChange={(e) => setForm({ ...f, bank_instructions: e.target.value })} placeholder="E.g. Use your email as the transfer reference. Allow 1-24h for review." />
+      </div>
+      <div>
         <Label>Default price per SMS segment (USD)</Label>
         <Input type="number" step="0.0001" value={f.default_price_usd} onChange={(e) => setForm({ ...f, default_price_usd: e.target.value })} />
       </div>
+
       <div>
         <Label>Squad environment</Label>
         <select className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
