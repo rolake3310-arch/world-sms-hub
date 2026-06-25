@@ -89,10 +89,13 @@ export const createSquadCheckout = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SquadInput.parse(d))
   .handler(async ({ data, context }) => {
     const { data: settings } = await context.supabase
-      .from("app_settings").select("squad_enabled, squad_environment").eq("id", 1).maybeSingle();
+      .from("app_settings").select("squad_enabled, squad_environment, min_fund_usd").eq("id", 1).maybeSingle();
     if (!settings?.squad_enabled) throw new Error("Squad funding is disabled");
+    const min = Number((settings as any)?.min_fund_usd ?? 0);
+    if (data.amount_usd < min) throw new Error(`Minimum deposit is $${min.toFixed(2)}`);
     const SQUAD_SECRET_KEY = process.env.SQUAD_SECRET_KEY;
     if (!SQUAD_SECRET_KEY) throw new Error("Squad is not configured. Ask the admin to add the SQUAD_SECRET_KEY secret.");
+
 
     const base = settings.squad_environment === "live"
       ? "https://api-d.squadco.com"
