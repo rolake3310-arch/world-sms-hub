@@ -15,8 +15,10 @@ export const submitCryptoDeposit = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => CryptoInput.parse(d))
   .handler(async ({ data, context }) => {
     const { data: settings } = await context.supabase
-      .from("app_settings").select("crypto_enabled").eq("id", 1).maybeSingle();
+      .from("app_settings").select("crypto_enabled, min_fund_usd").eq("id", 1).maybeSingle();
     if (!settings?.crypto_enabled) throw new Error("Crypto funding is disabled");
+    const min = Number((settings as any)?.min_fund_usd ?? 0);
+    if (data.amount_usd < min) throw new Error(`Minimum deposit is $${min.toFixed(2)}`);
     const { data: row, error } = await context.supabase
       .from("deposits")
       .insert({
@@ -33,6 +35,49 @@ export const submitCryptoDeposit = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { id: row.id };
   });
+
+const BankInput = z.object({
+  amount_usd: z.number().positive().max(1_000_000),
+  bank_account_id: z.string().uuid(),
+  sender_name: z.string().min(1).max(120),
+  tx_reference: z.string().min(2).max(200),
+  proof_url: z.string().url().max(500).optional().or(z.literal("")),
+  notes: z.string().max(500).optional(),
+});
+
+export const submitBankDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => BankInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: settings } = await context.supabase
+      .from("app_settings").select("bank_enabled, min_fund_usd").eq("id", 1).maybeSingle();
+    if (!(settings as any)?.bank_enabled) throw new Error("Bank transfer is disabled");
+    const min = Number((settings as any)?.min_fund_usd ?? 0);
+    if (data.amount_usd < min) throw new Error(`Minimum deposit is $${min.toFixed(2)}`);
+    const { data: bank } = await context.supabase
+      .from("bank_accounts" as any).select("label, bank_name").eq("id", data.bank_account_id).maybeSingle();
+    const noteLines = [
+      `Bank: ${(bank as any)?.bank_name ?? ""} (${(bank as any)?.label ?? ""})`,
+      `Sender: ${data.sender_name}`,
+      data.notes ? `Note: ${data.notes}` : "",
+    ].filter(Boolean).join(" | ");
+    const { data: row, error } = await context.supabase
+      .from("deposits")
+      .insert({
+        user_id: context.userId,
+        method: "bank_transfer" as any,
+        amount_usd: data.amount_usd,
+        asset: "BANK",
+        tx_reference: data.tx_reference,
+        proof_url: data.proof_url || null,
+        notes: noteLines,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: row.id };
+  });
+
 
 const SquadInput = z.object({
   amount_usd: z.number().positive().max(1_000_000),
