@@ -16,34 +16,76 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          bank_enabled: boolean
+          bank_instructions: string | null
           crypto_enabled: boolean
           currency: string
           default_price_usd: number
           id: number
+          min_fund_usd: number
           squad_enabled: boolean
           squad_environment: string
           squad_public_key: string | null
           updated_at: string
         }
         Insert: {
+          bank_enabled?: boolean
+          bank_instructions?: string | null
           crypto_enabled?: boolean
           currency?: string
           default_price_usd?: number
           id?: number
+          min_fund_usd?: number
           squad_enabled?: boolean
           squad_environment?: string
           squad_public_key?: string | null
           updated_at?: string
         }
         Update: {
+          bank_enabled?: boolean
+          bank_instructions?: string | null
           crypto_enabled?: boolean
           currency?: string
           default_price_usd?: number
           id?: number
+          min_fund_usd?: number
           squad_enabled?: boolean
           squad_environment?: string
           squad_public_key?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      bank_accounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          active: boolean
+          bank_name: string
+          created_at: string
+          extra: string | null
+          id: string
+          label: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          active?: boolean
+          bank_name: string
+          created_at?: string
+          extra?: string | null
+          id?: string
+          label: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          active?: boolean
+          bank_name?: string
+          created_at?: string
+          extra?: string | null
+          id?: string
+          label?: string
         }
         Relationships: []
       }
@@ -262,7 +304,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
-      deposit_method: "crypto" | "squad"
+      deposit_method: "crypto" | "squad" | "bank_transfer"
       deposit_status: "pending" | "approved" | "rejected"
       sms_status: "queued" | "sent" | "failed"
       user_status: "active" | "suspended"
@@ -394,7 +436,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
-      deposit_method: ["crypto", "squad"],
+      deposit_method: ["crypto", "squad", "bank_transfer"],
       deposit_status: ["pending", "approved", "rejected"],
       sms_status: ["queued", "sent", "failed"],
       user_status: ["active", "suspended"],
