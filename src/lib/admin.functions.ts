@@ -34,6 +34,9 @@ export const adminGetStats = createServerFn({ method: "GET" })
 const SettingsInput = z.object({
   crypto_enabled: z.boolean(),
   squad_enabled: z.boolean(),
+  bank_enabled: z.boolean(),
+  bank_instructions: z.string().max(2000).optional().nullable(),
+  min_fund_usd: z.number().min(0).max(1_000_000),
   default_price_usd: z.number().min(0).max(100),
   squad_public_key: z.string().max(200).optional().nullable(),
   squad_environment: z.enum(["sandbox", "live"]),
@@ -47,10 +50,53 @@ export const adminUpdateSettings = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("app_settings").update({
       ...data,
       updated_at: new Date().toISOString(),
-    }).eq("id", 1);
+    } as any).eq("id", 1);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+const BankAccountInput = z.object({
+  id: z.string().uuid().optional(),
+  label: z.string().min(1).max(80),
+  bank_name: z.string().min(1).max(120),
+  account_name: z.string().min(1).max(120),
+  account_number: z.string().min(1).max(80),
+  extra: z.string().max(500).optional().nullable(),
+  active: z.boolean(),
+});
+
+export const adminUpsertBankAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => BankAccountInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { id, ...payload } = data;
+    const tbl = context.supabase.from("bank_accounts" as any);
+    const { error } = id
+      ? await tbl.update(payload).eq("id", id)
+      : await tbl.insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminDeleteBankAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase.from("bank_accounts" as any).delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminListBankAccounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data } = await context.supabase.from("bank_accounts" as any).select("*").order("created_at");
+    return (data ?? []) as any[];
+  });
+
 
 const WalletInput = z.object({
   id: z.string().uuid().optional(),

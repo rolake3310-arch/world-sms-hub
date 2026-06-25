@@ -16,9 +16,12 @@ import {
   adminListDeposits, adminReviewDeposit,
   adminListUsers, adminAdjustBalance, adminSetUserStatus, adminSetUserRole,
   adminListMessages,
+  adminListBankAccounts, adminUpsertBankAccount, adminDeleteBankAccount,
 } from "@/lib/admin.functions";
+import { Textarea } from "@/components/ui/textarea";
 import { getCountryPrices } from "@/lib/sms.functions";
 import { ShieldAlert, Trash2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/app/admin")({
   component: AdminPage,
@@ -43,6 +46,7 @@ function AdminPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Funding & Pricing</TabsTrigger>
           <TabsTrigger value="wallets">Wallets</TabsTrigger>
+          <TabsTrigger value="banks">Bank accounts</TabsTrigger>
           <TabsTrigger value="countries">Country prices</TabsTrigger>
           <TabsTrigger value="deposits">Deposits</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -51,10 +55,12 @@ function AdminPage() {
         <TabsContent value="overview"><Overview /></TabsContent>
         <TabsContent value="settings"><SettingsPanel /></TabsContent>
         <TabsContent value="wallets"><WalletsPanel /></TabsContent>
+        <TabsContent value="banks"><BanksPanel /></TabsContent>
         <TabsContent value="countries"><CountriesPanel /></TabsContent>
         <TabsContent value="deposits"><DepositsPanel /></TabsContent>
         <TabsContent value="users"><UsersPanel /></TabsContent>
         <TabsContent value="messages"><MessagesPanel /></TabsContent>
+
       </Tabs>
     </div>
   );
@@ -94,10 +100,14 @@ function SettingsPanel() {
     mutationFn: () => save({ data: {
       crypto_enabled: !!f?.crypto_enabled,
       squad_enabled: !!f?.squad_enabled,
+      bank_enabled: !!f?.bank_enabled,
+      bank_instructions: f?.bank_instructions ?? null,
+      min_fund_usd: Number(f?.min_fund_usd ?? 0),
       default_price_usd: Number(f?.default_price_usd ?? 0.05),
       squad_public_key: f?.squad_public_key ?? null,
       squad_environment: f?.squad_environment ?? "sandbox",
     } }),
+
     onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
     onError: (e: any) => toast.error(e?.message),
   });
@@ -113,15 +123,32 @@ function SettingsPanel() {
       </div>
       <div className="flex items-center justify-between">
         <div>
+          <div className="font-semibold">Bank transfer</div>
+          <div className="text-xs text-muted-foreground">Show bank account(s) & manual approval</div>
+        </div>
+        <Switch checked={!!f.bank_enabled} onCheckedChange={(v) => setForm({ ...f, bank_enabled: v })} />
+      </div>
+      <div className="flex items-center justify-between">
+        <div>
           <div className="font-semibold">Squad (squadco.com)</div>
           <div className="text-xs text-muted-foreground">Card / bank checkout</div>
         </div>
         <Switch checked={!!f.squad_enabled} onCheckedChange={(v) => setForm({ ...f, squad_enabled: v })} />
       </div>
       <div>
+        <Label>Minimum funding amount (USD)</Label>
+        <Input type="number" step="0.01" value={f.min_fund_usd ?? 0} onChange={(e) => setForm({ ...f, min_fund_usd: e.target.value })} />
+        <p className="mt-1 text-xs text-muted-foreground">Applies to crypto, bank transfer, and Squad. Set 0 to disable.</p>
+      </div>
+      <div>
+        <Label>Bank transfer instructions (shown to users)</Label>
+        <Textarea rows={3} value={f.bank_instructions ?? ""} onChange={(e) => setForm({ ...f, bank_instructions: e.target.value })} placeholder="E.g. Use your email as the transfer reference. Allow 1-24h for review." />
+      </div>
+      <div>
         <Label>Default price per SMS segment (USD)</Label>
         <Input type="number" step="0.0001" value={f.default_price_usd} onChange={(e) => setForm({ ...f, default_price_usd: e.target.value })} />
       </div>
+
       <div>
         <Label>Squad environment</Label>
         <select className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -363,3 +390,53 @@ function MessagesPanel() {
     </Card>
   );
 }
+
+function BanksPanel() {
+  const list = useServerFn(adminListBankAccounts);
+  const upsert = useServerFn(adminUpsertBankAccount);
+  const del = useServerFn(adminDeleteBankAccount);
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["admin-banks"], queryFn: () => list() });
+  const empty = { label: "", bank_name: "", account_name: "", account_number: "", extra: "", active: true };
+  const [form, setForm] = useState<any>(empty);
+  const m = useMutation({
+    mutationFn: () => upsert({ data: { ...form, extra: form.extra || null } }),
+    onSuccess: () => { toast.success("Saved"); setForm(empty); qc.invalidateQueries({ queryKey: ["admin-banks"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onError: (e: any) => toast.error(e?.message),
+  });
+  const dm = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-banks"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+  });
+  return (
+    <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <Card className="space-y-3 p-5">
+        <h3 className="font-semibold">Add bank account</h3>
+        <div><Label>Label (shown to users)</Label><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="USD Wire — Primary" /></div>
+        <div><Label>Bank name</Label><Input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="Chase Bank" /></div>
+        <div><Label>Account name</Label><Input value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} placeholder="My Company LLC" /></div>
+        <div><Label>Account number</Label><Input value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} className="font-mono" /></div>
+        <div><Label>Extra info (routing, IBAN, SWIFT, memo)</Label><Textarea rows={2} value={form.extra} onChange={(e) => setForm({ ...form, extra: e.target.value })} /></div>
+        <Button onClick={() => m.mutate()} disabled={!form.label || !form.bank_name || !form.account_name || !form.account_number || m.isPending}>Add</Button>
+      </Card>
+      <Card className="p-5">
+        <h3 className="mb-3 font-semibold">Existing accounts</h3>
+        <ul className="space-y-2">
+          {(data ?? []).map((b: any) => (
+            <li key={b.id} className="flex items-start justify-between gap-2 rounded border border-border p-2 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">{b.label} {!b.active && <span className="text-xs text-muted-foreground">(inactive)</span>}</div>
+                <div className="text-xs text-muted-foreground">{b.bank_name} · {b.account_name}</div>
+                <div className="break-all font-mono text-xs">{b.account_number}</div>
+                {b.extra && <div className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{b.extra}</div>}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => dm.mutate(b.id)}><Trash2 className="h-4 w-4" /></Button>
+            </li>
+          ))}
+          {(data ?? []).length === 0 && <li className="text-sm text-muted-foreground">None.</li>}
+        </ul>
+      </Card>
+    </div>
+  );
+}
+

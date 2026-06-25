@@ -16,7 +16,7 @@ export const getPublicSettings = createServerFn({ method: "GET" }).handler(async
   const sb = publicClient();
   const { data: settings } = await sb
     .from("app_settings")
-    .select("crypto_enabled, squad_enabled, default_price_usd, currency, squad_environment")
+    .select("crypto_enabled, squad_enabled, bank_enabled, bank_instructions, min_fund_usd, default_price_usd, currency, squad_environment")
     .eq("id", 1)
     .maybeSingle();
   const { data: wallets } = await sb
@@ -24,11 +24,18 @@ export const getPublicSettings = createServerFn({ method: "GET" }).handler(async
     .select("id, label, asset, network, address")
     .eq("active", true)
     .order("created_at");
+  const { data: banks } = await sb
+    .from("bank_accounts")
+    .select("id, label, bank_name, account_name, account_number, extra")
+    .eq("active", true)
+    .order("created_at");
   return {
-    settings: settings ?? { crypto_enabled: false, squad_enabled: false, default_price_usd: 0.05, currency: "USD", squad_environment: "sandbox" },
+    settings: settings ?? { crypto_enabled: false, squad_enabled: false, bank_enabled: false, bank_instructions: "", min_fund_usd: 0, default_price_usd: 0.05, currency: "USD", squad_environment: "sandbox" },
     wallets: wallets ?? [],
+    banks: banks ?? [],
   };
 });
+
 
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
