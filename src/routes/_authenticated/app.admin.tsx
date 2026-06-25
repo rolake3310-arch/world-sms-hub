@@ -390,3 +390,53 @@ function MessagesPanel() {
     </Card>
   );
 }
+
+function BanksPanel() {
+  const list = useServerFn(adminListBankAccounts);
+  const upsert = useServerFn(adminUpsertBankAccount);
+  const del = useServerFn(adminDeleteBankAccount);
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["admin-banks"], queryFn: () => list() });
+  const empty = { label: "", bank_name: "", account_name: "", account_number: "", extra: "", active: true };
+  const [form, setForm] = useState<any>(empty);
+  const m = useMutation({
+    mutationFn: () => upsert({ data: { ...form, extra: form.extra || null } }),
+    onSuccess: () => { toast.success("Saved"); setForm(empty); qc.invalidateQueries({ queryKey: ["admin-banks"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onError: (e: any) => toast.error(e?.message),
+  });
+  const dm = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-banks"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+  });
+  return (
+    <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <Card className="space-y-3 p-5">
+        <h3 className="font-semibold">Add bank account</h3>
+        <div><Label>Label (shown to users)</Label><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="USD Wire — Primary" /></div>
+        <div><Label>Bank name</Label><Input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="Chase Bank" /></div>
+        <div><Label>Account name</Label><Input value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} placeholder="My Company LLC" /></div>
+        <div><Label>Account number</Label><Input value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} className="font-mono" /></div>
+        <div><Label>Extra info (routing, IBAN, SWIFT, memo)</Label><Textarea rows={2} value={form.extra} onChange={(e) => setForm({ ...form, extra: e.target.value })} /></div>
+        <Button onClick={() => m.mutate()} disabled={!form.label || !form.bank_name || !form.account_name || !form.account_number || m.isPending}>Add</Button>
+      </Card>
+      <Card className="p-5">
+        <h3 className="mb-3 font-semibold">Existing accounts</h3>
+        <ul className="space-y-2">
+          {(data ?? []).map((b: any) => (
+            <li key={b.id} className="flex items-start justify-between gap-2 rounded border border-border p-2 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">{b.label} {!b.active && <span className="text-xs text-muted-foreground">(inactive)</span>}</div>
+                <div className="text-xs text-muted-foreground">{b.bank_name} · {b.account_name}</div>
+                <div className="break-all font-mono text-xs">{b.account_number}</div>
+                {b.extra && <div className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{b.extra}</div>}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => dm.mutate(b.id)}><Trash2 className="h-4 w-4" /></Button>
+            </li>
+          ))}
+          {(data ?? []).length === 0 && <li className="text-sm text-muted-foreground">None.</li>}
+        </ul>
+      </Card>
+    </div>
+  );
+}
+
