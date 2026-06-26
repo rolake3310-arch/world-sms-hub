@@ -12,29 +12,35 @@ function publicClient() {
   );
 }
 
-export const getPublicSettings = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = publicClient();
-  const { data: settings } = await sb
-    .from("app_settings")
-    .select("crypto_enabled, squad_enabled, bank_enabled, bank_instructions, min_fund_usd, default_price_usd, currency, squad_environment")
-    .eq("id", 1)
-    .maybeSingle();
-  const { data: wallets } = await sb
-    .from("crypto_wallets")
-    .select("id, label, asset, network, address")
-    .eq("active", true)
-    .order("created_at");
-  const { data: banks } = await sb
-    .from("bank_accounts")
-    .select("id, label, bank_name, account_name, account_number, extra")
-    .eq("active", true)
-    .order("created_at");
-  return {
-    settings: settings ?? { crypto_enabled: false, squad_enabled: false, bank_enabled: false, bank_instructions: "", min_fund_usd: 0, default_price_usd: 0.05, currency: "USD", squad_environment: "sandbox" },
-    wallets: wallets ?? [],
-    banks: banks ?? [],
-  };
-});
+export const getPublicSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    const { data: settings, error: sErr } = await sb
+      .from("app_settings")
+      .select("crypto_enabled, squad_enabled, bank_enabled, bank_instructions, min_fund_usd, default_price_usd, currency, squad_environment")
+      .eq("id", 1)
+      .maybeSingle();
+    if (sErr) console.error("settings err", sErr);
+    const { data: wallets, error: wErr } = await sb
+      .from("crypto_wallets")
+      .select("id, label, asset, network, address")
+      .eq("active", true)
+      .order("created_at");
+    if (wErr) console.error("wallets err", wErr);
+    const { data: banks, error: bErr } = await sb
+      .from("bank_accounts")
+      .select("id, label, bank_name, account_name, account_number, extra")
+      .eq("active", true)
+      .order("created_at");
+    if (bErr) console.error("banks err", bErr);
+    return {
+      settings: settings ?? { crypto_enabled: false, squad_enabled: false, bank_enabled: false, bank_instructions: "", min_fund_usd: 0, default_price_usd: 0.05, currency: "USD", squad_environment: "sandbox" },
+      wallets: wallets ?? [],
+      banks: banks ?? [],
+    };
+  });
+
 
 
 export const getMyProfile = createServerFn({ method: "GET" })
