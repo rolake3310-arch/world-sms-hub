@@ -136,54 +136,61 @@ export const sendSms = createServerFn({ method: "POST" })
     });
     if (debitErr) throw new Error(debitErr.message || "Insufficient balance");
 
-    // Call GatewayAPI
-    const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
+    // ─── Call GatewayAPI directly ───────────────────────────────────────────
     const GATEWAYAPI_API_KEY = process.env.GATEWAYAPI_API_KEY;
+
     let gatewayOk = false;
     let gatewayError: string | null = null;
     let gatewayIds: Record<string, string> = {};
 
-    if (!LOVABLE_API_KEY || !GATEWAYAPI_API_KEY) {
-      gatewayError = "SMS provider not configured. Connect GatewayAPI.";
+    if (!GATEWAYAPI_API_KEY) {
+      gatewayError = "SMS provider not configured. Set GATEWAYAPI_API_KEY in your environment variables.";
     } else {
       try {
-        const resp = await fetch("https://connector-gateway.lovable.dev/gatewayapi/mobile/multi", {
+        // GatewayAPI REST endpoint — send one message object with multiple recipients
+        // Docs: https://gatewayapi.com/docs/apis/legacy/rest/
+        const payload = {
+          sender: data.sender,
+          message: data.message,
+          recipients: lines.map((l) => ({ msisdn: l.msisdn })),
+        };
+
+        const resp = await fetch("https://gatewayapi.com/rest/mtsms", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "X-Connection-Api-Key": GATEWAYAPI_API_KEY,
+            // GatewayAPI uses HTTP Basic Auth: token as username, empty password
+            Authorization: `Basic ${Buffer.from(`${GATEWAYAPI_API_KEY}:`).toString("base64")}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            messages: lines.map((l) => ({
-              sender: data.sender,
-              recipient: l.msisdn,
-              message: data.message,
-            })),
-          }),
+          body: JSON.stringify(payload),
         });
+
         const json: unknown = await resp.json().catch(() => ({}));
+
         if (!resp.ok) {
-          gatewayError = `Provider error ${resp.status}: ${JSON.stringify(json).slice(0, 300)}`;
+          gatewayError = `GatewayAPI error ${resp.status}: ${JSON.stringify(json).slice(0, 300)}`;
         } else {
           gatewayOk = true;
-          // best-effort id mapping
+          // GatewayAPI returns { ids: [123, 456, ...] } — one id per recipient
           const ids = (json as { ids?: unknown }).ids;
           if (Array.isArray(ids)) {
-            lines.forEach((l, i) => { if (ids[i] != null) gatewayIds[l.e164] = String(ids[i]); });
+            lines.forEach((l, i) => {
+              if (ids[i] != null) gatewayIds[l.e164] = String(ids[i]);
+            });
           }
         }
       } catch (e) {
-        gatewayError = e instanceof Error ? e.message : "Network error";
+        gatewayError = e instanceof Error ? e.message : "Network error contacting GatewayAPI";
       }
     }
+    // ───────────────────────────────────────────────────────────────────────
 
     if (!gatewayOk) {
-      // refund
+      // Refund the user if sending failed
       await supabaseAdmin.rpc("credit_balance", { _user_id: context.userId, _amount: total });
     }
 
-    // Log messages
+    // Log messages to DB
     const rows = lines.map((l) => ({
       user_id: context.userId,
       sender: data.sender,
