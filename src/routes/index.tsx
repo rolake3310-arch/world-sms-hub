@@ -5,9 +5,9 @@ import { MessageSquare, Globe2, Zap, Shield, Wallet, BarChart3 } from "lucide-re
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pulse SMS — Send SMS to any country" },
-      { name: "description", content: "Pay-as-you-go global SMS. Fund with crypto or card. Send to any country instantly." },
-      { property: "og:title", content: "Pulse SMS — Global SMS gateway" },
+      { title: "SMS DEX — Send SMS to any country" },
+      { name: "description", content: "Pay-as-you-go  SMS DEX. Fund with crypto or card. Send to any country instantly." },
+      { property: "og:title", content: " SMS DEX  — DEX SMS gateway" },
       { property: "og:description", content: "Pay-as-you-go global SMS. Fund with crypto or card." },
     ],
   }),
@@ -22,7 +22,7 @@ function Landing() {
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand shadow-glow">
             <MessageSquare className="h-4 w-4 text-white" />
           </div>
-          <span className="text-lg font-bold tracking-tight">Pulse SMS</span>
+          <span className="text-lg font-bold tracking-tight">DEX SMS</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost"><Link to="/auth">Sign in</Link></Button>
@@ -32,7 +32,7 @@ function Landing() {
 
       <section className="mx-auto max-w-6xl px-4 pt-16 pb-24 text-center">
         <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" /> Global SMS network · pay as you go
+          <span className="h-1.5 w-1.5 rounded-full bg-success" /> DEX SMS network · pay as you go
         </div>
         <h1 className="text-4xl font-bold tracking-tight md:text-6xl">
           Send SMS to <span className="text-gradient-brand">any country</span>,
@@ -80,7 +80,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Pulse SMS
+        © {new Date().getFullYear()} DEX SMS
       </footer>
     </div>
   );
