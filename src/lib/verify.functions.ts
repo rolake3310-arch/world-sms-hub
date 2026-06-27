@@ -26,7 +26,6 @@ export const getVerifyCountries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const data = await fivesim("/guest/countries");
-    // data is { countryName: { iso: "xx", prefix: "1", ... }, ... }
     return Object.entries(data as Record<string, any>).map(([name, info]) => ({
       name,
       iso: info.iso ?? name,
@@ -37,15 +36,22 @@ export const getVerifyCountries = createServerFn({ method: "GET" })
 export const getVerifyProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ country: z.string().min(1) }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Read markup from admin settings
+    const { data: settings } = await context.supabase
+      .from("app_settings")
+      .select("verify_markup")
+      .eq("id", 1)
+      .maybeSingle();
+    const markup = Number((settings as any)?.verify_markup ?? 1.5);
+
     const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/any`);
-    // result is { productName: { Category, Qty, Price }, ... }
     return Object.entries(result as Record<string, any>)
       .filter(([, info]) => info.Qty > 0)
       .map(([name, info]) => ({
         name,
         qty: info.Qty,
-        price: Number(info.Price),  // in USD
+        price: Number((Number(info.Price) * markup).toFixed(4)),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
