@@ -40,6 +40,7 @@ const SettingsInput = z.object({
   default_price_usd: z.number().min(0).max(100),
   squad_public_key: z.string().max(200).optional().nullable(),
   squad_environment: z.enum(["sandbox", "live"]),
+  verify_markup: z.number().min(1).max(100),
 });
 
 export const adminUpdateSettings = createServerFn({ method: "POST" })
