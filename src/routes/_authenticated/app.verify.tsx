@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { Smartphone, Copy, RefreshCw, XCircle, Clock, CheckCircle2, Search } from "lucide-react";
 import { useCurrency } from "@/lib/currency";
 
-
 export const Route = createFileRoute("/_authenticated/app/verify")({
   head: () => ({ meta: [{ title: "SMS Verify — Rent a Number" }] }),
   component: VerifyPage,
