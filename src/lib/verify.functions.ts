@@ -60,7 +60,7 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
         const price = custom !== undefined
           ? custom                                          // use custom price if set
           : Number((Number(info.Price) * markup).toFixed(4)); // else apply global markup
-        return { name, qty: info.Qty, price, custom: custom !== undefined };
+        return { name, qty: info.Qty, price, price_usd: price, raw_cost: Number(info.Price), custom: custom !== undefined };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   });
