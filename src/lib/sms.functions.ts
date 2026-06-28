@@ -18,7 +18,7 @@ export const getPublicSettings = createServerFn({ method: "GET" })
     const sb = context.supabase;
     const { data: settings, error: sErr } = await sb
       .from("app_settings")
-      .select("crypto_enabled, squad_enabled, bank_enabled, bank_instructions, min_fund_usd, default_price_usd, currency, squad_environment, squad_public_key, verify_markup")
+      .select("crypto_enabled, squad_enabled, bank_enabled, bank_instructions, min_fund_usd, default_price_usd, currency, squad_environment, squad_public_key, verify_markup, site_currency, usd_to_ngn")
       .eq("id", 1)
       .maybeSingle();
     if (sErr) console.error("settings err", sErr);
