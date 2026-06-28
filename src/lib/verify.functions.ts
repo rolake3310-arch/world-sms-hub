@@ -173,7 +173,9 @@ export const cancelVerifyOrder = createServerFn({ method: "POST" })
     if (oErr || !order) throw new Error("Order not found");
 
     const o = order as any;
-    if (o.status !== "PENDING") throw new Error("Can only cancel pending orders");
+    if (!["PENDING", "ACTIVATION", "WAITING", "READY"].includes(o.status)) {
+      throw new Error("Cannot cancel — SMS already received or order already finished");
+    }
 
     await fivesim(`/user/cancel/${o.sim_order_id}`);
 
