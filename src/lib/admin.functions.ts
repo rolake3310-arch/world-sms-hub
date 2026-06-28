@@ -41,6 +41,8 @@ const SettingsInput = z.object({
   squad_public_key: z.string().max(200).optional().nullable(),
   squad_environment: z.enum(["sandbox", "live"]),
   verify_markup: z.number().min(1).max(100),
+  site_currency: z.enum(["USD", "NGN"]),
+  usd_to_ngn: z.number().min(1),
 });
 
 export const adminUpdateSettings = createServerFn({ method: "POST" })
@@ -299,4 +301,47 @@ export const adminListMessages = createServerFn({ method: "GET" })
       emails = new Map((profs ?? []).map((p) => [p.id, p.email]));
     }
     return (msgs ?? []).map((m) => ({ ...m, user_email: emails.get(m.user_id) ?? "" }));
+  });
+
+
+// ── Verify Prices ─────────────────────────────────────────────────────────────
+export const adminListVerifyPrices = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data } = await context.supabase
+      .from("verify_prices" as any)
+      .select("id, service, price_usd, created_at")
+      .order("service");
+    return (data ?? []) as any[];
+  });
+
+const VerifyPriceInput = z.object({
+  service: z.string().min(1).max(80).toLowerCase(),
+  price_usd: z.number().min(0).max(1000),
+});
+
+export const adminUpsertVerifyPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => VerifyPriceInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("verify_prices" as any)
+      .upsert({ service: data.service.toLowerCase(), price_usd: data.price_usd }, { onConflict: "service" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminDeleteVerifyPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("verify_prices" as any)
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
