@@ -37,7 +37,7 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ country: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
-    // Read markup from admin settings
+    // Read global markup and per-service custom prices
     const { data: settings } = await context.supabase
       .from("app_settings")
       .select("verify_markup")
@@ -45,14 +45,23 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
       .maybeSingle();
     const markup = Number((settings as any)?.verify_markup ?? 1.5);
 
+    const { data: customPrices } = await context.supabase
+      .from("verify_prices" as any)
+      .select("service, price_usd");
+    const priceMap = new Map(
+      (customPrices ?? []).map((p: any) => [p.service.toLowerCase(), Number(p.price_usd)])
+    );
+
     const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/any`);
     return Object.entries(result as Record<string, any>)
       .filter(([, info]) => info.Qty > 0)
-      .map(([name, info]) => ({
-        name,
-        qty: info.Qty,
-        price: Number((Number(info.Price) * markup).toFixed(4)),
-      }))
+      .map(([name, info]) => {
+        const custom = priceMap.get(name.toLowerCase());
+        const price = custom !== undefined
+          ? custom                                          // use custom price if set
+          : Number((Number(info.Price) * markup).toFixed(4)); // else apply global markup
+        return { name, qty: info.Qty, price, custom: custom !== undefined };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
