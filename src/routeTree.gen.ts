@@ -18,6 +18,8 @@ import { Route as AuthenticatedAppSendRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppHistoryRouteImport } from './routes/_authenticated/app.history'
 import { Route as AuthenticatedAppFundRouteImport } from './routes/_authenticated/app.fund'
 import { Route as AuthenticatedAppAdminRouteImport } from './routes/_authenticated/app.admin'
+import { Route as AuthenticatedAppVerifyRouteImport } from './routes/_authenticated/app.verify'
+import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -63,6 +65,16 @@ const AuthenticatedAppAdminRoute = AuthenticatedAppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppVerifyRoute = AuthenticatedAppVerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppSettingsRoute = AuthenticatedAppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,6 +84,8 @@ export interface FileRoutesByFullPath {
   '/app/fund': typeof AuthenticatedAppFundRoute
   '/app/history': typeof AuthenticatedAppHistoryRoute
   '/app/send': typeof AuthenticatedAppSendRoute
+  '/app/verify': typeof AuthenticatedAppVerifyRoute
+  '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
@@ -81,6 +95,8 @@ export interface FileRoutesByTo {
   '/app/fund': typeof AuthenticatedAppFundRoute
   '/app/history': typeof AuthenticatedAppHistoryRoute
   '/app/send': typeof AuthenticatedAppSendRoute
+  '/app/verify': typeof AuthenticatedAppVerifyRoute
+  '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
@@ -93,6 +109,8 @@ export interface FileRoutesById {
   '/_authenticated/app/fund': typeof AuthenticatedAppFundRoute
   '/_authenticated/app/history': typeof AuthenticatedAppHistoryRoute
   '/_authenticated/app/send': typeof AuthenticatedAppSendRoute
+  '/_authenticated/app/verify': typeof AuthenticatedAppVerifyRoute
+  '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
@@ -105,6 +123,8 @@ export interface FileRouteTypes {
     | '/app/fund'
     | '/app/history'
     | '/app/send'
+    | '/app/verify'
+    | '/app/settings'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -114,6 +134,8 @@ export interface FileRouteTypes {
     | '/app/fund'
     | '/app/history'
     | '/app/send'
+    | '/app/verify'
+    | '/app/settings'
     | '/app'
   id:
     | '__root__'
@@ -125,6 +147,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/fund'
     | '/_authenticated/app/history'
     | '/_authenticated/app/send'
+    | '/_authenticated/app/verify'
+    | '/_authenticated/app/settings'
     | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
@@ -199,6 +223,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAdminRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/verify': {
+      id: '/_authenticated/app/verify'
+      path: '/verify'
+      fullPath: '/app/verify'
+      preLoaderRoute: typeof AuthenticatedAppVerifyRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/settings': {
+      id: '/_authenticated/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AuthenticatedAppSettingsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
   }
 }
 
@@ -207,6 +245,8 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppFundRoute: typeof AuthenticatedAppFundRoute
   AuthenticatedAppHistoryRoute: typeof AuthenticatedAppHistoryRoute
   AuthenticatedAppSendRoute: typeof AuthenticatedAppSendRoute
+  AuthenticatedAppVerifyRoute: typeof AuthenticatedAppVerifyRoute
+  AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -215,6 +255,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppFundRoute: AuthenticatedAppFundRoute,
   AuthenticatedAppHistoryRoute: AuthenticatedAppHistoryRoute,
   AuthenticatedAppSendRoute: AuthenticatedAppSendRoute,
+  AuthenticatedAppVerifyRoute: AuthenticatedAppVerifyRoute,
+  AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
