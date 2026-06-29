@@ -159,7 +159,10 @@ export const checkVerifyOrder = createServerFn({ method: "POST" })
 
     // Poll 5sim
     const result = await fivesim(`/user/check/${o.sim_order_id}`);
-    const smsCode: string | null = result.sms?.[0]?.code ?? null;
+    // 5sim returns sms[].code (extracted digits) OR sms[].text (full message)
+    // Prefer .code (the OTP digits); fall back to .text if .code is missing
+    const firstSms = result.sms?.[0];
+    const smsCode: string | null = firstSms?.code ?? firstSms?.text ?? null;
 
     // Only mark RECEIVED/FINISHED if there's an actual SMS code
     // Never trust 5sim's status alone — they sometimes return RECEIVED with no code
