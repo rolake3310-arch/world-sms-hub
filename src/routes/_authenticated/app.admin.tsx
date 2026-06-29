@@ -476,8 +476,8 @@ function VerifyPricesPanel() {
   });
 
   // Build country options from 5sim
-  const countryOptions: string[] = Array.isArray(countriesData)
-    ? (countriesData as string[]).sort()
+  const countryOptions = Array.isArray(countriesData)
+    ? (countriesData as { name: string; iso: string }[])
     : [];
 
   const canAdd = newRow.service.trim() && newRow.price_ngn && Number(newRow.price_ngn) > 0;
@@ -506,7 +506,7 @@ function VerifyPricesPanel() {
             >
               <option value="">— All countries —</option>
               {countryOptions.map((c) => (
-                <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                <option key={c.name} value={c.name}>{c.name.charAt(0).toUpperCase() + c.name.slice(1)}</option>
               ))}
             </select>
             <p className="mt-1 text-xs text-muted-foreground">Leave blank for global</p>
