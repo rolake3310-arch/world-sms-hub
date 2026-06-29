@@ -35,9 +35,8 @@ export const getVerifyCountries = createServerFn({ method: "GET" })
 
 export const getVerifyProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ country: z.string().min(1) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ country: z.string().min(1), operator: z.string().default("any") }).parse(d))
   .handler(async ({ data, context }) => {
-    // Read global markup and per-service custom prices
     const { data: settings } = await context.supabase
       .from("app_settings")
       .select("verify_markup")
@@ -52,22 +51,36 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
       (customPrices ?? []).map((p: any) => [p.service.toLowerCase(), Number(p.price_usd)])
     );
 
-    const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/any`);
+    const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}`);
     return Object.entries(result as Record<string, any>)
       .filter(([, info]) => info.Qty > 0)
       .map(([name, info]) => {
         const custom = priceMap.get(name.toLowerCase());
         const price = custom !== undefined
-          ? custom                                          // use custom price if set
-          : Number((Number(info.Price) * markup).toFixed(4)); // else apply global markup
+          ? custom
+          : Number((Number(info.Price) * markup).toFixed(4));
         return { name, qty: info.Qty, price, price_usd: price, raw_cost: Number(info.Price), custom: custom !== undefined };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
+export const getVerifyOperators = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ country: z.string().min(1) }).parse(d))
+  .handler(async ({ data }) => {
+    try {
+      const result = await fivesim(`/guest/operators/${encodeURIComponent(data.country)}`);
+      const ops = Object.keys(result as Record<string, any>);
+      return ["any", ...ops.filter((o) => o !== "any")];
+    } catch {
+      return ["any"];
+    }
+  });
+
 // ── Buy a number ──────────────────────────────────────────────────────────────
 const BuyInput = z.object({
   country: z.string().min(1).max(60),
+  operator: z.string().min(1).max(60).default("any"),
   product: z.string().min(1).max(60),
   price_usd: z.number().positive(),
 });
@@ -88,7 +101,7 @@ export const buyVerifyNumber = createServerFn({ method: "POST" })
     let order: any;
     try {
       order = await fivesim(
-        `/user/buy/activation/${encodeURIComponent(data.country)}/any/${encodeURIComponent(data.product)}`
+        `/user/buy/activation/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}/${encodeURIComponent(data.product)}`
       );
     } catch (e) {
       // Refund if 5sim call failed
@@ -146,8 +159,11 @@ export const checkVerifyOrder = createServerFn({ method: "POST" })
 
     // Poll 5sim
     const result = await fivesim(`/user/check/${o.sim_order_id}`);
-    const newStatus: string = result.status ?? o.status;
     const smsCode: string | null = result.sms?.[0]?.code ?? null;
+    // Only mark RECEIVED if there's an actual code, otherwise keep as PENDING
+    const newStatus: string = smsCode
+      ? (result.status ?? o.status)
+      : (["CANCELED", "FINISHED", "BANNED"].includes(result.status) ? result.status : "PENDING");
 
     await supabaseAdmin
       .from("sms_verifications" as any)
