@@ -21,6 +21,7 @@ import {
 } from "@/lib/admin.functions";
 import { Textarea } from "@/components/ui/textarea";
 import { getCountryPrices } from "@/lib/sms.functions";
+import { getVerifyCountries } from "@/lib/verify.functions";
 import { ShieldAlert, Trash2 } from "lucide-react";
 
 
@@ -421,26 +422,25 @@ function VerifyPricesPanel() {
   const upsert = useServerFn(adminUpsertVerifyPrice);
   const del = useServerFn(adminDeleteVerifyPrice);
   const getSettings = useServerFn(getPublicSettings);
+  const getCountries = useServerFn(getVerifyCountries);
   const qc = useQueryClient();
 
   const { data: priceData } = useQuery({ queryKey: ["admin-verify-prices"], queryFn: () => list() });
   const { data: settingsData } = useQuery({ queryKey: ["public-settings"], queryFn: () => getSettings() });
+  const { data: countriesData } = useQuery({ queryKey: ["verify-countries"], queryFn: () => getCountries() });
 
   const markup = Number(settingsData?.settings?.verify_markup ?? 1.5);
-  const currency = settingsData?.settings?.site_currency ?? "USD";
   const rate = Number(settingsData?.settings?.usd_to_ngn ?? 1600);
 
-  const customMap = new Map((priceData ?? []).map((p: any) => [p.service.toLowerCase(), p]));
-
-  // inline editing state: { [service]: string }
-  const [editing, setEditing] = useState<Record<string, string>>({});
-  const [newRow, setNewRow] = useState({ service: "", price: "" });
-  const [serviceSearch, setServiceSearch] = useState("");
-
-  function fmt(usd: number) {
-    if (currency === "NGN") return `₦${(usd * rate).toFixed(2)}`;
-    return `$${usd.toFixed(4)}`;
+  // Always show NGN for this panel
+  function fmtNgn(usd: number) {
+    return `₦${(usd * rate).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
+  function ngnToUsd(ngn: number) { return ngn / rate; }
+
+  const [editing, setEditing] = useState<Record<string, string>>({});
+  const [newRow, setNewRow] = useState({ country: "", service: "", price_ngn: "" });
+  const [serviceSearch, setServiceSearch] = useState("");
 
   const saveMutation = useMutation({
     mutationFn: ({ service, price_usd }: { service: string; price_usd: number }) =>
@@ -460,34 +460,59 @@ function VerifyPricesPanel() {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => upsert({ data: { service: newRow.service.toLowerCase().trim(), price_usd: Number(newRow.price) } }),
+    mutationFn: () => {
+      const price_usd = ngnToUsd(Number(newRow.price_ngn));
+      const service = newRow.country
+        ? `${newRow.country.toLowerCase()}_${newRow.service.toLowerCase().trim()}`
+        : newRow.service.toLowerCase().trim();
+      return upsert({ data: { service, price_usd } });
+    },
     onSuccess: () => {
-      toast.success("Added");
-      setNewRow({ service: "", price: "" });
+      toast.success("Saved");
+      setNewRow({ country: "", service: "", price_ngn: "" });
       qc.invalidateQueries({ queryKey: ["admin-verify-prices"] });
     },
     onError: (e: any) => toast.error(e?.message),
   });
 
-  const allServices = (priceData ?? []).map((p: any) => p.service.toLowerCase());
-  const filtered = serviceSearch
-    ? allServices.filter((s: string) => s.includes(serviceSearch.toLowerCase()))
-    : allServices;
+  // Build country options from 5sim
+  const countryOptions: string[] = Array.isArray(countriesData)
+    ? (countriesData as string[]).sort()
+    : [];
+
+  const canAdd = newRow.service.trim() && newRow.price_ngn && Number(newRow.price_ngn) > 0;
 
   return (
     <div className="mt-4 space-y-4">
       <Card className="p-5">
         <p className="text-sm text-muted-foreground">
           Set a <strong>fixed price per service</strong> that overrides the global markup ({markup}x).
-          The <span className="text-warning font-medium">5sim cost</span> column shows what you actually pay — compare to set your profit margin.
-          Services without a custom price use the global markup automatically.
+          Enter prices in <strong>₦ Naira</strong> — they're stored in USD automatically using your rate (₦{rate}/USD).
+          Select a country to make the price country-specific (saved as <code>country_service</code>), or leave blank for a global override.
         </p>
       </Card>
 
-      {/* Add new service price */}
+      {/* Add / update */}
       <Card className="p-5">
         <h3 className="mb-3 font-semibold">Add / update service price</h3>
         <div className="flex flex-wrap gap-3">
+          {/* Country selector */}
+          <div className="w-48">
+            <Label>Country (optional)</Label>
+            <select
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={newRow.country}
+              onChange={(e) => setNewRow({ ...newRow, country: e.target.value })}
+            >
+              <option value="">— All countries —</option>
+              {countryOptions.map((c) => (
+                <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">Leave blank for global</p>
+          </div>
+
+          {/* Service name */}
           <div className="flex-1 min-w-[140px]">
             <Label>Service name</Label>
             <Input
@@ -495,21 +520,33 @@ function VerifyPricesPanel() {
               onChange={(e) => setNewRow({ ...newRow, service: e.target.value.toLowerCase() })}
               placeholder="e.g. whatsapp"
             />
-            <p className="mt-1 text-xs text-muted-foreground">Lowercase, exactly as shown on verify page</p>
+            <p className="mt-1 text-xs text-muted-foreground">Lowercase, as shown on verify page</p>
           </div>
-          <div className="w-40">
-            <Label>Your price (USD)</Label>
-            <Input
-              type="number" step="0.01" min="0"
-              value={newRow.price}
-              onChange={(e) => setNewRow({ ...newRow, price: e.target.value })}
-              placeholder="e.g. 0.50"
-            />
+
+          {/* Price in NGN */}
+          <div className="w-44">
+            <Label>Your price (₦ Naira)</Label>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₦</span>
+              <Input
+                type="number" step="1" min="0"
+                className="pl-7"
+                value={newRow.price_ngn}
+                onChange={(e) => setNewRow({ ...newRow, price_ngn: e.target.value })}
+                placeholder="e.g. 800"
+              />
+            </div>
+            {newRow.price_ngn && Number(newRow.price_ngn) > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                ≈ ${ngnToUsd(Number(newRow.price_ngn)).toFixed(4)} USD
+              </p>
+            )}
           </div>
+
           <div className="flex items-end">
             <Button
               onClick={() => addMutation.mutate()}
-              disabled={!newRow.service || !newRow.price || addMutation.isPending}
+              disabled={!canAdd || addMutation.isPending}
             >
               {addMutation.isPending ? "Saving..." : "Save"}
             </Button>
@@ -532,10 +569,10 @@ function VerifyPricesPanel() {
           <table className="w-full text-sm">
             <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="p-3">Service</th>
-                <th className="p-3 text-right text-warning">5sim cost (what you pay)</th>
-                <th className="p-3 text-right">Your price (what users pay)</th>
-                <th className="p-3 text-right">Profit</th>
+                <th className="p-3">Service / Country</th>
+                <th className="p-3 text-right text-warning">Est. 5sim cost</th>
+                <th className="p-3 text-right">Your price (₦)</th>
+                <th className="p-3 text-right">Profit (₦)</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
@@ -551,41 +588,41 @@ function VerifyPricesPanel() {
                 .filter((p: any) => !serviceSearch || p.service.includes(serviceSearch.toLowerCase()))
                 .map((p: any) => {
                   const yourPrice = Number(p.price_usd);
-                  // We don't have 5sim's raw cost stored — show it as yourPrice / markup as estimate
                   const estimatedCost = yourPrice / markup;
                   const profit = yourPrice - estimatedCost;
                   const isEditing = editing[p.service] !== undefined;
+                  // display editing value as NGN
+                  const editNgn = isEditing ? editing[p.service] : String((yourPrice * rate).toFixed(0));
                   return (
                     <tr key={p.id} className="border-t border-border hover:bg-accent/30">
-                      <td className="p-3 capitalize font-medium">{p.service}</td>
-                      <td className="p-3 text-right text-warning tabular-nums">
-                        ~{fmt(estimatedCost)}
-                      </td>
+                      <td className="p-3 font-medium capitalize">{p.service.replace(/_/g, " › ")}</td>
+                      <td className="p-3 text-right text-warning tabular-nums">~{fmtNgn(estimatedCost)}</td>
                       <td className="p-3 text-right tabular-nums">
                         {isEditing ? (
-                          <Input
-                            type="number" step="0.01" min="0"
-                            className="w-28 ml-auto text-right"
-                            value={editing[p.service]}
-                            onChange={(e) => setEditing({ ...editing, [p.service]: e.target.value })}
-                          />
+                          <div className="relative ml-auto w-32">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">₦</span>
+                            <Input
+                              type="number" step="1" min="0"
+                              className="pl-6 text-right w-full"
+                              value={editing[p.service]}
+                              onChange={(e) => setEditing({ ...editing, [p.service]: e.target.value })}
+                            />
+                          </div>
                         ) : (
                           <button
                             className="hover:underline text-primary"
-                            onClick={() => setEditing({ ...editing, [p.service]: String(yourPrice) })}
+                            onClick={() => setEditing({ ...editing, [p.service]: String((yourPrice * rate).toFixed(0)) })}
                           >
-                            {fmt(yourPrice)}
+                            {fmtNgn(yourPrice)}
                           </button>
                         )}
                       </td>
-                      <td className="p-3 text-right tabular-nums text-success">
-                        +{fmt(profit)}
-                      </td>
+                      <td className="p-3 text-right tabular-nums text-success">+{fmtNgn(profit)}</td>
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-1">
                           {isEditing && (
                             <Button size="sm" onClick={() =>
-                              saveMutation.mutate({ service: p.service, price_usd: Number(editing[p.service]) })
+                              saveMutation.mutate({ service: p.service, price_usd: ngnToUsd(Number(editing[p.service])) })
                             }>
                               Save
                             </Button>
@@ -604,8 +641,8 @@ function VerifyPricesPanel() {
       </Card>
 
       <Card className="p-4 text-xs text-muted-foreground space-y-1">
-        <p>⚠️ <strong>5sim cost</strong> shown is estimated (your price ÷ markup). To see the exact 5sim price, go to the Verify page, select a country and service — the raw cost appears before your markup is applied in the server logs.</p>
-        <p>✅ <strong>Not all countries/services are on 5sim</strong> — this is normal. 5sim only shows what's actually available from their suppliers at that moment. Availability changes daily.</p>
+        <p>⚠️ <strong>5sim cost</strong> shown is estimated (your price ÷ markup). Country-specific prices are saved as <code>country_service</code> e.g. <code>nigeria_whatsapp</code>.</p>
+        <p>✅ All prices entered in ₦ Naira. Stored internally in USD at your rate of ₦{rate}/$1.</p>
       </Card>
     </div>
   );
