@@ -112,6 +112,11 @@ function SettingsPanel() {
       verify_markup: Number(f?.verify_markup ?? 1.5),
       site_currency: f?.site_currency ?? "USD",
       usd_to_ngn: Number(f?.usd_to_ngn ?? 1600),
+      telegram_popup_enabled: !!f?.telegram_popup_enabled,
+      telegram_url: f?.telegram_url ?? "",
+      telegram_popup_title: f?.telegram_popup_title ?? "Join Our Telegram!",
+      telegram_popup_subtitle: f?.telegram_popup_subtitle ?? "Official channel · Free activation keys",
+      telegram_popup_body: f?.telegram_popup_body ?? "Stay updated and get free activation keys by joining our Telegram channel 🎁",
     } }),
 
     onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
@@ -193,6 +198,35 @@ function SettingsPanel() {
         <Input value={f.squad_public_key ?? ""} onChange={(e) => setForm({ ...f, squad_public_key: e.target.value })} />
         <p className="mt-1 text-xs text-muted-foreground">Add the Squad SECRET key as a secret named <code>SQUAD_SECRET_KEY</code> via project settings.</p>
       </div>
+      {/* ── Telegram Popup ── */}
+      <div className="border-t pt-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="font-semibold">Telegram channel popup</div>
+            <div className="text-xs text-muted-foreground">Shows to users every time they load the dashboard</div>
+          </div>
+          <Switch checked={!!f.telegram_popup_enabled} onCheckedChange={(v) => setForm({ ...f, telegram_popup_enabled: v })} />
+        </div>
+        <div className="space-y-3">
+          <div>
+            <Label>Telegram channel link</Label>
+            <Input value={f.telegram_url ?? ""} onChange={(e) => setForm({ ...f, telegram_url: e.target.value })} placeholder="https://t.me/yourchannel" />
+          </div>
+          <div>
+            <Label>Popup title</Label>
+            <Input value={f.telegram_popup_title ?? ""} onChange={(e) => setForm({ ...f, telegram_popup_title: e.target.value })} placeholder="Join Our Telegram!" />
+          </div>
+          <div>
+            <Label>Popup subtitle</Label>
+            <Input value={f.telegram_popup_subtitle ?? ""} onChange={(e) => setForm({ ...f, telegram_popup_subtitle: e.target.value })} placeholder="Official channel · Free activation keys" />
+          </div>
+          <div>
+            <Label>Popup body text</Label>
+            <Textarea rows={2} value={f.telegram_popup_body ?? ""} onChange={(e) => setForm({ ...f, telegram_popup_body: e.target.value })} placeholder="Stay updated and get free activation keys by joining our Telegram channel 🎁" />
+          </div>
+        </div>
+      </div>
+
       <Button onClick={() => m.mutate()} disabled={m.isPending}>{m.isPending ? "Saving..." : "Save settings"}</Button>
     </Card>
   );
@@ -664,4 +698,3 @@ function BanksPanel() {
     </div>
   );
 }
-
