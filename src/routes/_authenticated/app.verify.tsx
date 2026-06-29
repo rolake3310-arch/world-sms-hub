@@ -356,49 +356,57 @@ function VerifyPage() {
           </div>
 
           {/* Operator selector */}
-          {country && operators.length > 1 && (
-            <Card className="p-4">
-              <h3 className="mb-1 text-sm font-semibold">Operator</h3>
-              <p className="mb-3 text-xs text-muted-foreground">
-                💡 For best results: use <strong>virtual</strong> operators for WhatsApp, Telegram, Instagram & TikTok. Use <strong>any</strong> if unsure.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {operators.map((op) => {
-                  const tips: Record<string, string> = {
-                    any: "Auto-pick best",
-                    virtual: "✅ Best for WhatsApp/Telegram",
-                    virtual1: "✅ Good delivery",
-                    virtual2: "✅ Good delivery",
-                    virtual3: "✅ Good delivery",
-                    virtual4: "✅ Good delivery",
-                    virtual5: "✅ Good delivery",
-                    virtual9: "✅ Good delivery",
-                    virtual11: "✅ Good delivery",
-                    virtual16: "✅ Good delivery",
-                    virtual20: "✅ Good delivery",
-                    beeline: "Good for Telegram",
-                    mts: "Good for Russia services",
-                    megafon: "Good for Russia services",
-                    tele2: "Decent delivery",
-                  };
-                  const tip = tips[op.toLowerCase()];
-                  const isVirtual = op.toLowerCase().startsWith("virtual");
-                  const isAny = op.toLowerCase() === "any";
-                  return (
-                    <button key={op} onClick={() => { setOperator(op); setProduct(""); }}
-                      className={`flex flex-col rounded-lg border px-3 py-2 text-left text-xs font-medium capitalize transition-colors ${
-                        operator === op
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : isVirtual
-                          ? "border-success/40 bg-success/5 hover:bg-success/10"
-                          : "border-border hover:bg-accent"
-                      }`}>
-                      <span>{op}</span>
-                      {tip && <span className={`mt-0.5 text-[10px] font-normal ${operator === op ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{tip}</span>}
-                    </button>
-                  );
-                })}
+          {country && (
+            <Card className="p-4 border-primary/20">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-semibold">Operator</h3>
+                <span className="text-[10px] rounded-full bg-warning/10 text-warning px-2 py-0.5 font-medium">
+                  ⚡ Switch operator if SMS is slow
+                </span>
               </div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                💡 Try <strong>virtual</strong> operators for WhatsApp, Telegram, Instagram & TikTok. If <strong>any</strong> is slow, switch to a specific one.
+              </p>
+              {operators.length <= 1 ? (
+                <p className="text-xs text-muted-foreground">Only one operator available for this country.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {operators.map((op) => {
+                    const tips: Record<string, string> = {
+                      any: "Auto-pick best",
+                      virtual: "✅ Best for WhatsApp/Telegram",
+                      virtual1: "✅ Good delivery",
+                      virtual2: "✅ Good delivery",
+                      virtual3: "✅ Good delivery",
+                      virtual4: "✅ Good delivery",
+                      virtual5: "✅ Good delivery",
+                      virtual9: "✅ Good delivery",
+                      virtual11: "✅ Good delivery",
+                      virtual16: "✅ Good delivery",
+                      virtual20: "✅ Good delivery",
+                      beeline: "Good for Telegram",
+                      mts: "Good for Russia services",
+                      megafon: "Good for Russia services",
+                      tele2: "Decent delivery",
+                    };
+                    const tip = tips[op.toLowerCase()];
+                    const isVirtual = op.toLowerCase().startsWith("virtual");
+                    return (
+                      <button key={op} onClick={() => setOperator(op)}
+                        className={`flex flex-col rounded-lg border px-3 py-2 text-left text-xs font-medium capitalize transition-colors ${
+                          operator === op
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : isVirtual
+                            ? "border-success/40 bg-success/5 hover:bg-success/10"
+                            : "border-border hover:bg-accent"
+                        }`}>
+                        <span>{op}</span>
+                        {tip && <span className={`mt-0.5 text-[10px] font-normal ${operator === op ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{tip}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           )}
 
