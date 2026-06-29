@@ -160,10 +160,17 @@ export const checkVerifyOrder = createServerFn({ method: "POST" })
     // Poll 5sim
     const result = await fivesim(`/user/check/${o.sim_order_id}`);
     const smsCode: string | null = result.sms?.[0]?.code ?? null;
-    // Only mark RECEIVED if there's an actual code, otherwise keep as PENDING
-    const newStatus: string = smsCode
-      ? (result.status ?? o.status)
-      : (["CANCELED", "FINISHED", "BANNED"].includes(result.status) ? result.status : "PENDING");
+
+    // Only mark RECEIVED/FINISHED if there's an actual SMS code
+    // Never trust 5sim's status alone — they sometimes return RECEIVED with no code
+    let newStatus: string;
+    if (smsCode) {
+      newStatus = "RECEIVED";
+    } else if (result.status === "CANCELED" || result.status === "BANNED") {
+      newStatus = result.status;
+    } else {
+      newStatus = "PENDING"; // keep as pending until real code arrives
+    }
 
     await supabaseAdmin
       .from("sms_verifications" as any)
@@ -189,13 +196,16 @@ export const cancelVerifyOrder = createServerFn({ method: "POST" })
     if (oErr || !order) throw new Error("Order not found");
 
     const o = order as any;
-    if (!["PENDING", "ACTIVATION", "WAITING", "READY"].includes(o.status)) {
-      throw new Error("Cannot cancel — SMS already received or order already finished");
+
+    // Allow cancel as long as no real SMS code was received
+    if (o.sms_code) {
+      throw new Error("Cannot cancel — SMS code already received");
     }
 
-    await fivesim(`/user/cancel/${o.sim_order_id}`);
+    // Try to cancel on 5sim side (may fail if already expired/finished, that's ok)
+    try { await fivesim(`/user/cancel/${o.sim_order_id}`); } catch (_) {}
 
-    // Refund user
+    // Always refund and mark canceled
     await supabaseAdmin.rpc("credit_balance", { _user_id: context.userId, _amount: o.cost_usd });
     await supabaseAdmin
       .from("sms_verifications" as any)
