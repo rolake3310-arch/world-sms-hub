@@ -153,26 +153,36 @@ export const checkVerifyOrder = createServerFn({ method: "POST" })
     if (oErr || !order) throw new Error("Order not found");
 
     const o = order as any;
-    if (o.status === "RECEIVED" || o.status === "FINISHED" || o.status === "CANCELED") {
+
+    // If already canceled, no need to re-check
+    if (o.status === "CANCELED" || o.status === "BANNED") {
       return { status: o.status, sms_code: o.sms_code, phone: o.phone };
     }
 
-    // Poll 5sim
-    const result = await fivesim(`/user/check/${o.sim_order_id}`);
-    // 5sim returns sms[].code (extracted digits) OR sms[].text (full message)
-    // Prefer .code (the OTP digits); fall back to .text if .code is missing
-    const firstSms = result.sms?.[0];
-    const smsCode: string | null = firstSms?.code ?? firstSms?.text ?? null;
+    // If RECEIVED/FINISHED AND we already have the code saved, return it
+    if ((o.status === "RECEIVED" || o.status === "FINISHED") && o.sms_code) {
+      return { status: o.status, sms_code: o.sms_code, phone: o.phone };
+    }
 
-    // Only mark RECEIVED/FINISHED if there's an actual SMS code
-    // Never trust 5sim's status alone — they sometimes return RECEIVED with no code
+    // Always re-poll 5sim if we don't have the code yet
+    // (handles cases where status was RECEIVED but sms_code was never saved)
+    const result = await fivesim(`/user/check/${o.sim_order_id}`);
+
+    // Log raw result to help debug — visible in server logs
+    console.log("[5sim check]", JSON.stringify(result));
+
+    // 5sim returns sms as array of objects with .code and/or .text
+    const firstSms = result.sms?.[0];
+    const smsCode: string | null =
+      firstSms?.code ?? firstSms?.text ?? null;
+
     let newStatus: string;
     if (smsCode) {
       newStatus = "RECEIVED";
     } else if (result.status === "CANCELED" || result.status === "BANNED") {
       newStatus = result.status;
     } else {
-      newStatus = "PENDING"; // keep as pending until real code arrives
+      newStatus = "PENDING";
     }
 
     await supabaseAdmin
