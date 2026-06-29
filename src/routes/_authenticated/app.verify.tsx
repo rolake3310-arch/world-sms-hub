@@ -133,29 +133,38 @@ function VerifyPage() {
   function startPolling(id: string, expiresAt: string) {
     stopPolling();
     pollRef.current = setInterval(async () => {
+      // Check expiry
+      if (new Date() > new Date(expiresAt)) {
+        stopPolling();
+        try { await fetchCancel({ data: { id } }); } catch (_) {}
+        setActiveOrder(null);
+        qc.invalidateQueries({ queryKey: ["me"] });
+        qc.invalidateQueries({ queryKey: ["my-verifications"] });
+        toast.info("Order expired — balance refunded automatically.");
+        return;
+      }
       try {
-        if (new Date() > new Date(expiresAt)) {
+        const result = await fetchCheck({ data: { id } });
+        // Always update the displayed order with latest data
+        setActiveOrder((prev: any) => ({ ...prev, ...result }));
+
+        if (result.status === "CANCELED" || result.status === "BANNED") {
           stopPolling();
-          try { await fetchCancel({ data: { id } }); } catch (_) {}
           setActiveOrder(null);
-          qc.invalidateQueries({ queryKey: ["me"] });
-          qc.invalidateQueries({ queryKey: ["my-verifications"] });
-          toast.info("Order expired — balance refunded automatically.");
           return;
         }
-        const result = await fetchCheck({ data: { id } });
-        setActiveOrder((prev: any) => ({ ...prev, ...result }));
-        if (result.status === "RECEIVED" || result.status === "FINISHED") {
+
+        // Only stop polling once we have the actual code
+        if (result.sms_code) {
           stopPolling();
           qc.invalidateQueries({ queryKey: ["my-verifications"] });
-          toast.success("SMS received!");
+          toast.success("SMS code received!");
         }
-        if (result.status === "CANCELED") {
-          stopPolling();
-          setActiveOrder(null);
-        }
-      } catch (_) {}
-    }, 5000);
+      } catch (err: any) {
+        // Log errors visibly instead of silently swallowing them
+        console.error("[poll error]", err?.message ?? err);
+      }
+    }, 3000); // poll every 3s instead of 5s for faster response
   }
 
   function stopPolling() {
