@@ -1,24 +1,98 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getMyProfile, getMyMessages } from "@/lib/sms.functions";
+import { getMyProfile, getMyMessages, getPublicSettings } from "@/lib/sms.functions";
 import { getMyDeposits } from "@/lib/funding.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, Wallet, MessageSquare, TrendingUp } from "lucide-react";
+import { Send, Wallet, MessageSquare, TrendingUp, X } from "lucide-react";
 import { useCurrency } from "@/lib/currency";
+import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   component: Dashboard,
 });
 
+function TelegramPopup({ settings }: { settings: any }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (settings?.telegram_popup_enabled) {
+      // Show every refresh after a short delay
+      const timer = setTimeout(() => setVisible(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [settings?.telegram_popup_enabled]);
+
+  if (!visible || !settings?.telegram_popup_enabled) return null;
+
+  const title = settings.telegram_popup_title || "Join Our Telegram!";
+  const subtitle = settings.telegram_popup_subtitle || "Official channel · Free activation keys";
+  const body = settings.telegram_popup_body || "Stay updated and get free activation keys by joining our Telegram channel 🎁";
+  const url = settings.telegram_url || "https://t.me/";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
+      <div className="relative w-full max-w-sm rounded-2xl bg-background shadow-xl overflow-hidden">
+        {/* Header gradient */}
+        <div className="bg-[#2AABEE] px-6 pt-6 pb-8 text-white text-center">
+          <button
+            onClick={() => setVisible(false)}
+            className="absolute right-4 top-4 text-white/70 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {/* Telegram logo */}
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/20">
+            <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
+              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold">{title}</h2>
+          <p className="mt-0.5 text-sm text-white/80">{subtitle}</p>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 pt-4 pb-2">
+          <p className="text-center text-sm text-muted-foreground">{body}</p>
+
+          {/* Feature pills */}
+          <div className="mt-4 flex justify-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium">🔑 Free Keys</span>
+            <span className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium">📢 Updates</span>
+            <span className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium">💬 Support</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2 px-6 pb-6 pt-4">
+          <Button
+            className="w-full bg-[#2AABEE] hover:bg-[#229ED9] text-white font-semibold"
+            onClick={() => { window.open(url, "_blank"); setVisible(false); }}
+          >
+            Join Channel
+          </Button>
+          <button
+            className="w-full text-center text-sm text-muted-foreground hover:text-foreground py-1"
+            onClick={() => setVisible(false)}
+          >
+            No thanks, close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard() {
   const fetchProfile = useServerFn(getMyProfile);
   const fetchMsgs = useServerFn(getMyMessages);
   const fetchDeps = useServerFn(getMyDeposits);
+  const fetchSettings = useServerFn(getPublicSettings);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchProfile() });
   const { data: msgs } = useQuery({ queryKey: ["my-msgs"], queryFn: () => fetchMsgs() });
   const { data: deps } = useQuery({ queryKey: ["my-deps"], queryFn: () => fetchDeps() });
+  const { data: settingsData } = useQuery({ queryKey: ["public-settings"], queryFn: () => fetchSettings() });
   const { fmt } = useCurrency();
 
   const sent = (msgs ?? []).filter((m) => m.status === "sent").length;
@@ -27,6 +101,7 @@ function Dashboard() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-0">
+      <TelegramPopup settings={settingsData?.settings} />
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Welcome back</h1>
         <p className="text-sm text-muted-foreground">{me?.profile?.email}</p>
