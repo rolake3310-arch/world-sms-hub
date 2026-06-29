@@ -43,6 +43,11 @@ const SettingsInput = z.object({
   verify_markup: z.number().min(1).max(100),
   site_currency: z.enum(["USD", "NGN"]),
   usd_to_ngn: z.number().min(1),
+  telegram_popup_enabled: z.boolean(),
+  telegram_url: z.string().max(300),
+  telegram_popup_title: z.string().max(100),
+  telegram_popup_subtitle: z.string().max(200),
+  telegram_popup_body: z.string().max(500),
 });
 
 export const adminUpdateSettings = createServerFn({ method: "POST" })
