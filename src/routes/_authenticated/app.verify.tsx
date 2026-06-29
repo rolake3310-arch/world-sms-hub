@@ -217,9 +217,24 @@ function VerifyPage() {
                   <button onClick={() => copyPhone(activeOrder.sms_code)} className="mt-1 text-xs text-success hover:underline">Copy code</button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Waiting for SMS...
+                <div className="flex flex-col items-start gap-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Waiting for SMS...
+                  </div>
+                  <button
+                    className="text-xs text-primary underline hover:no-underline"
+                    onClick={async () => {
+                      try {
+                        const result = await fetchCheck({ data: { id: activeOrder.id } });
+                        setActiveOrder((prev: any) => ({ ...prev, ...result }));
+                        if (result.sms_code) toast.success("SMS received!");
+                        else toast.info("No code yet — still waiting");
+                      } catch (e: any) { toast.error(e.message); }
+                    }}
+                  >
+                    Check now
+                  </button>
                 </div>
               )}
               <Button variant="destructive" size="sm" onClick={() => cancelMutation.mutate(activeOrder.id)} disabled={cancelMutation.isPending}>
