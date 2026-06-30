@@ -467,9 +467,7 @@ function VerifyPricesPanel() {
   const addMutation = useMutation({
     mutationFn: () => {
       const price_usd = ngnToUsd(Number(newRow.price_ngn));
-      const service = newRow.country
-        ? `${newRow.country.toLowerCase()}_${newRow.service.toLowerCase().trim()}`
-        : newRow.service.toLowerCase().trim();
+      const service = newRow.service.toLowerCase().trim(); // just service name, no country prefix
       return upsert({ data: { service, operator: newRow.operator, price_usd } });
     },
     onSuccess: () => {
