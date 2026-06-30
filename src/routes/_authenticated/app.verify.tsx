@@ -14,7 +14,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Smartphone, Copy, RefreshCw, XCircle, Clock, Search, Globe, ArrowLeft } from "lucide-react";
+import { Smartphone, Copy, RefreshCw, XCircle, Clock, Search, ArrowLeft, ChevronRight } from "lucide-react";
 import { useCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/app/verify")({
@@ -22,7 +22,26 @@ export const Route = createFileRoute("/_authenticated/app/verify")({
   component: VerifyPage,
 });
 
-type Mode = null | "us" | "all";
+// Step-based flow: country → operator → service → buy
+type Step = "mode" | "country" | "operator" | "service";
+
+const OPERATOR_TIPS: Record<string, string> = {
+  any: "Auto — best available",
+  virtual: "Best for WhatsApp / Telegram",
+  virtual1: "Good delivery",
+  virtual2: "Good delivery",
+  virtual3: "Good delivery",
+  virtual4: "Good delivery",
+  virtual5: "Good delivery",
+  virtual9: "Good delivery",
+  virtual11: "Good delivery",
+  virtual16: "Good delivery",
+  virtual20: "Good delivery",
+  beeline: "Good for Telegram",
+  mts: "Good for Russian services",
+  megafon: "Good for Russian services",
+  tele2: "Decent delivery",
+};
 
 function VerifyPage() {
   const qc = useQueryClient();
@@ -34,7 +53,8 @@ function VerifyPage() {
   const fetchCancel = useServerFn(cancelVerifyOrder);
   const fetchHistory = useServerFn(getMyVerifications);
 
-  const [mode, setMode] = useState<Mode>(null);
+  const [step, setStep] = useState<Step>("mode");
+  const [usMode, setUsMode] = useState(false); // true = US numbers shortcut
   const [country, setCountry] = useState("");
   const [operator, setOperator] = useState("any");
   const [product, setProduct] = useState("");
@@ -45,12 +65,6 @@ function VerifyPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { fmt } = useCurrency();
-
-  // When US mode selected, pre-set country to "usa"
-  useEffect(() => {
-    if (mode === "us") { setCountry("usa"); setOperator("any"); setProduct(""); }
-    if (mode === "all") { setCountry(""); setOperator("any"); setProduct(""); }
-  }, [mode]);
 
   // Countdown timer
   useEffect(() => {
@@ -65,19 +79,20 @@ function VerifyPage() {
   const { data: countries = [] } = useQuery({
     queryKey: ["verify-countries"],
     queryFn: () => fetchCountries(),
-    enabled: mode === "all",
+    enabled: step === "country",
   });
 
-  const { data: operators = ["any"] } = useQuery({
+  const { data: operators = ["any"], isFetching: loadingOperators } = useQuery({
     queryKey: ["verify-operators", country],
     queryFn: () => fetchOperators({ data: { country } }),
     enabled: !!country,
+    staleTime: 1000 * 60 * 5, // cache 5 mins
   });
 
   const { data: products = [], isFetching: loadingProducts } = useQuery({
     queryKey: ["verify-products", country, operator],
     queryFn: () => fetchProducts({ data: { country, operator } }),
-    enabled: !!country,
+    enabled: !!country && step === "service",
   });
 
   const { data: history = [] } = useQuery({
@@ -85,21 +100,16 @@ function VerifyPage() {
     queryFn: () => fetchHistory(),
   });
 
-  // Restore active order if user refreshed or navigated away while order was active
+  // Restore active order on refresh
   useEffect(() => {
     if (activeOrder) return;
     const pending = (history as any[]).find(
-      (h) =>
-        (h.status === "PENDING" || h.status === "RECEIVED") &&
-        new Date(h.expires_at) > new Date()
+      (h) => (h.status === "PENDING" || h.status === "RECEIVED") && new Date(h.expires_at) > new Date()
     );
     if (pending) {
       setActiveOrder(pending);
-      if (pending.status === "PENDING") {
-        startPolling(pending.id, pending.expires_at);
-      }
+      if (pending.status === "PENDING") startPolling(pending.id, pending.expires_at);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history]);
 
   const buyMutation = useMutation({
@@ -119,13 +129,11 @@ function VerifyPage() {
     mutationFn: (id: string) => fetchCancel({ data: { id } }),
     onSuccess: () => {
       stopPolling();
-      const prevProduct = activeOrder?.service;
       setActiveOrder(null);
+      setStep("service");
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["my-verifications"] });
-      toast.success("Order cancelled and balance refunded. Try a different operator for better delivery.", { duration: 5000 });
-      // Keep country/mode/product so user can retry easily
-      if (prevProduct) setProduct(prevProduct);
+      toast.success("Cancelled & refunded. Try a different operator.", { duration: 5000 });
     },
     onError: (e: any) => toast.error(e.message ?? "Failed to cancel"),
   });
@@ -133,7 +141,6 @@ function VerifyPage() {
   function startPolling(id: string, expiresAt: string) {
     stopPolling();
     pollRef.current = setInterval(async () => {
-      // Check expiry
       if (new Date() > new Date(expiresAt)) {
         stopPolling();
         try { await fetchCancel({ data: { id } }); } catch (_) {}
@@ -145,26 +152,11 @@ function VerifyPage() {
       }
       try {
         const result = await fetchCheck({ data: { id } });
-        // Always update the displayed order with latest data
         setActiveOrder((prev: any) => ({ ...prev, ...result }));
-
-        if (result.status === "CANCELED" || result.status === "BANNED") {
-          stopPolling();
-          setActiveOrder(null);
-          return;
-        }
-
-        // Only stop polling once we have the actual code
-        if (result.sms_code) {
-          stopPolling();
-          qc.invalidateQueries({ queryKey: ["my-verifications"] });
-          toast.success("SMS code received!");
-        }
-      } catch (err: any) {
-        // Log errors visibly instead of silently swallowing them
-        console.error("[poll error]", err?.message ?? err);
-      }
-    }, 3000); // poll every 3s instead of 5s for faster response
+        if (result.status === "CANCELED" || result.status === "BANNED") { stopPolling(); setActiveOrder(null); return; }
+        if (result.sms_code) { stopPolling(); qc.invalidateQueries({ queryKey: ["my-verifications"] }); toast.success("SMS code received!"); }
+      } catch (err: any) { console.error("[poll error]", err?.message ?? err); }
+    }, 3000);
   }
 
   function stopPolling() {
@@ -174,8 +166,23 @@ function VerifyPage() {
 
   useEffect(() => () => stopPolling(), []);
 
+  function reset() {
+    setStep("mode"); setCountry(""); setOperator("any"); setProduct("");
+    setCountrySearch(""); setProductSearch(""); setUsMode(false);
+  }
+
+  function pickCountry(name: string) {
+    setCountry(name); setOperator("any"); setProduct("");
+    setStep("operator");
+  }
+
+  function pickOperator(op: string) {
+    setOperator(op); setProduct("");
+    setStep("service");
+  }
+
   const selectedProduct = products.find((p) => p.name === product);
-  const filteredCountries = countries.filter((c) =>
+  const filteredCountries = (countries as any[]).filter((c) =>
     c.name.toLowerCase().includes(countrySearch.toLowerCase())
   );
   const filteredProducts = products.filter((p) =>
@@ -186,13 +193,21 @@ function VerifyPage() {
     navigator.clipboard.writeText(phone).then(() => toast.success("Copied!"));
   }
 
+  // Breadcrumb display
+  const crumbs = [
+    { label: usMode ? "🇺🇸 US Numbers" : "🌍 All Countries", step: "mode" as Step },
+    country && { label: country.charAt(0).toUpperCase() + country.slice(1), step: "country" as Step },
+    (step === "operator" || step === "service") && { label: `Operator: ${operator}`, step: "operator" as Step },
+    step === "service" && product && { label: product, step: "service" as Step },
+  ].filter(Boolean) as { label: string; step: Step }[];
+
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">SMS Verification</h1>
         <p className="text-sm text-muted-foreground">
-          Purchase a number, receive your one-time code. Cancel any time before the code arrives for a refund.
+          Rent a number, receive your one-time code. Cancel any time for a full refund.
         </p>
       </div>
 
@@ -202,8 +217,7 @@ function VerifyPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Smartphone className="h-4 w-4" />
-                Your rented number
+                <Smartphone className="h-4 w-4" /> Your rented number
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-2xl font-bold tabular-nums tracking-wider">+{activeOrder.phone}</span>
@@ -228,11 +242,9 @@ function VerifyPage() {
               ) : (
                 <div className="flex flex-col items-start gap-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Waiting for SMS...
+                    <RefreshCw className="h-4 w-4 animate-spin" /> Waiting for SMS...
                   </div>
-                  <button
-                    className="text-xs text-primary underline hover:no-underline"
+                  <button className="text-xs text-primary underline hover:no-underline"
                     onClick={async () => {
                       try {
                         const result = await fetchCheck({ data: { id: activeOrder.id } });
@@ -240,168 +252,125 @@ function VerifyPage() {
                         if (result.sms_code) toast.success("SMS received!");
                         else toast.info("No code yet — still waiting");
                       } catch (e: any) { toast.error(e.message); }
-                    }}
-                  >
+                    }}>
                     Check now
                   </button>
                 </div>
               )}
               <Button variant="destructive" size="sm" onClick={() => cancelMutation.mutate(activeOrder.id)} disabled={cancelMutation.isPending}>
-                <XCircle className="mr-1.5 h-4 w-4" />
-                Cancel & Refund
+                <XCircle className="mr-1.5 h-4 w-4" /> Cancel & Refund
               </Button>
             </div>
           </div>
         </Card>
       )}
 
-      {/* Mode selector */}
-      {!activeOrder && mode === null && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <button
-            onClick={() => setMode("us")}
-            className="group rounded-2xl border-2 border-border bg-card p-8 text-left transition-all hover:border-primary hover:shadow-lg"
-          >
-            <div className="text-5xl mb-3">🇺🇸</div>
-            <div className="text-xl font-bold">US Numbers</div>
-            <div className="mt-1 text-sm text-muted-foreground">Get a United States virtual number instantly. Best for US-based apps and services.</div>
-          </button>
-          <button
-            onClick={() => setMode("all")}
-            className="group rounded-2xl border-2 border-border bg-card p-8 text-left transition-all hover:border-primary hover:shadow-lg"
-          >
-            <div className="text-5xl mb-3">🌍</div>
-            <div className="text-xl font-bold">All Countries</div>
-            <div className="mt-1 text-sm text-muted-foreground">Choose from 180+ countries worldwide. Pick your country and service.</div>
-          </button>
-        </div>
-      )}
+      {!activeOrder && (
+        <>
+          {/* Breadcrumb nav */}
+          {step !== "mode" && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+              <button onClick={reset} className="hover:text-foreground hover:underline">Home</button>
+              {crumbs.map((c, i) => (
+                <span key={i} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3" />
+                  <button
+                    onClick={() => setStep(c.step)}
+                    className="capitalize hover:text-foreground hover:underline"
+                  >
+                    {c.label}
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
-      {/* Order form */}
-      {!activeOrder && mode !== null && (
-        <div className="space-y-4">
-          <button onClick={() => { setMode(null); setCountry(""); setProduct(""); setOperator("any"); }}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
+          {/* STEP 1 — Mode */}
+          {step === "mode" && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <button onClick={() => { setUsMode(true); setCountry("usa"); setStep("operator"); }}
+                className="group rounded-2xl border-2 border-border bg-card p-8 text-left transition-all hover:border-primary hover:shadow-lg">
+                <div className="text-5xl mb-3">🇺🇸</div>
+                <div className="text-xl font-bold">US Numbers</div>
+                <div className="mt-1 text-sm text-muted-foreground">Get a United States virtual number instantly.</div>
+              </button>
+              <button onClick={() => { setUsMode(false); setStep("country"); }}
+                className="group rounded-2xl border-2 border-border bg-card p-8 text-left transition-all hover:border-primary hover:shadow-lg">
+                <div className="text-5xl mb-3">🌍</div>
+                <div className="text-xl font-bold">All Countries</div>
+                <div className="mt-1 text-sm text-muted-foreground">Choose from 180+ countries worldwide.</div>
+              </button>
+            </div>
+          )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Country picker — only for "all" mode */}
-            {mode === "all" && (
-              <Card className="p-5">
-                <h3 className="mb-3 font-semibold">1. Choose Country</h3>
-                <div className="relative mb-2">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Search country..."
-                    value={countrySearch}
-                    onChange={(e) => setCountrySearch(e.target.value)}
-                  />
-                </div>
-                <div className="h-64 overflow-y-auto rounded-md border border-border">
-                  {filteredCountries.map((c) => (
-                    <button key={c.iso}
-                      onClick={() => { setCountry(c.name); setProduct(""); setOperator("any"); }}
-                      className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent ${country === c.name ? "bg-primary text-primary-foreground" : ""}`}>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {/* US mode — show selected */}
-            {mode === "us" && (
-              <Card className="flex items-center gap-4 p-5">
-                <div className="text-4xl">🇺🇸</div>
-                <div>
-                  <div className="font-semibold text-lg">United States</div>
-                  <div className="text-sm text-muted-foreground">Select a service to get your US number</div>
-                </div>
-              </Card>
-            )}
-
-            {/* Service picker */}
+          {/* STEP 2 — Country picker (All Countries only) */}
+          {step === "country" && (
             <Card className="p-5">
-              <h3 className="mb-3 font-semibold">{mode === "us" ? "1." : "2."} Choose Service</h3>
-              <div className="relative mb-2">
+              <div className="flex items-center gap-3 mb-4">
+                <button onClick={reset} className="text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <h2 className="font-semibold text-lg">Select Country</h2>
+              </div>
+              <div className="relative mb-3">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <input
                   className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Search service (e.g. whatsapp)..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  disabled={!country}
+                  placeholder="Search country..."
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  autoFocus
                 />
               </div>
-              <div className="h-64 overflow-y-auto rounded-md border border-border">
-                {!country ? (
-                  <p className="p-4 text-sm text-muted-foreground">Select a country first</p>
-                ) : loadingProducts ? (
-                  <p className="p-4 text-sm text-muted-foreground">Loading services...</p>
-                ) : filteredProducts.length === 0 ? (
-                  <p className="p-4 text-sm text-muted-foreground">No services available</p>
-                ) : (
-                  filteredProducts.map((p) => (
-                    <button key={p.name} onClick={() => setProduct(p.name)}
-                      className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-accent ${product === p.name ? "bg-primary text-primary-foreground" : ""}`}>
-                      <span className="capitalize">{p.name}</span>
-                      <span className="text-xs font-medium">{fmt(p.price)}</span>
-                    </button>
-                  ))
+              <div className="h-80 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                {filteredCountries.length === 0 && (
+                  <p className="p-4 text-sm text-muted-foreground">No countries found</p>
                 )}
+                {filteredCountries.map((c: any) => (
+                  <button key={c.iso} onClick={() => pickCountry(c.name)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-accent capitalize transition-colors">
+                    <span>{c.name}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
               </div>
             </Card>
-          </div>
+          )}
 
-          {/* Operator selector */}
-          {country && (
-            <Card className="p-4 border-primary/20">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-sm font-semibold">Operator</h3>
-                <span className="text-[10px] rounded-full bg-warning/10 text-warning px-2 py-0.5 font-medium">
-                  ⚡ Switch operator if SMS is slow
-                </span>
+          {/* STEP 3 — Operator selector */}
+          {step === "operator" && country && (
+            <Card className="p-5">
+              <div className="flex items-center gap-3 mb-1">
+                <button onClick={() => usMode ? reset() : setStep("country")} className="text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div>
+                  <h2 className="font-semibold text-lg">Select Operator</h2>
+                  <p className="text-xs text-muted-foreground capitalize">Country: <strong>{country}</strong></p>
+                </div>
               </div>
-              <p className="mb-3 text-xs text-muted-foreground">
-                💡 Try <strong>virtual</strong> operators for WhatsApp, Telegram, Instagram & TikTok. If <strong>any</strong> is slow, switch to a specific one.
+
+              <p className="mt-3 mb-4 text-xs text-muted-foreground rounded-md bg-secondary px-3 py-2">
+                💡 <strong>virtual</strong> operators work best for WhatsApp, Telegram, Instagram & TikTok.
+                Use <strong>any</strong> if unsure — it auto-picks. If your SMS is slow, come back and try a different operator.
               </p>
-              {operators.length <= 1 ? (
-                <p className="text-xs text-muted-foreground">Only one operator available for this country.</p>
+
+              {loadingOperators ? (
+                <p className="text-sm text-muted-foreground">Loading operators...</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
                   {operators.map((op) => {
-                    const tips: Record<string, string> = {
-                      any: "Auto-pick best",
-                      virtual: "✅ Best for WhatsApp/Telegram",
-                      virtual1: "✅ Good delivery",
-                      virtual2: "✅ Good delivery",
-                      virtual3: "✅ Good delivery",
-                      virtual4: "✅ Good delivery",
-                      virtual5: "✅ Good delivery",
-                      virtual9: "✅ Good delivery",
-                      virtual11: "✅ Good delivery",
-                      virtual16: "✅ Good delivery",
-                      virtual20: "✅ Good delivery",
-                      beeline: "Good for Telegram",
-                      mts: "Good for Russia services",
-                      megafon: "Good for Russia services",
-                      tele2: "Decent delivery",
-                    };
-                    const tip = tips[op.toLowerCase()];
+                    const tip = OPERATOR_TIPS[op.toLowerCase()] ?? "Available operator";
                     const isVirtual = op.toLowerCase().startsWith("virtual");
+                    const isAny = op.toLowerCase() === "any";
                     return (
-                      <button key={op} onClick={() => setOperator(op)}
-                        className={`flex flex-col rounded-lg border px-3 py-2 text-left text-xs font-medium capitalize transition-colors ${
-                          operator === op
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : isVirtual
-                            ? "border-success/40 bg-success/5 hover:bg-success/10"
-                            : "border-border hover:bg-accent"
-                        }`}>
-                        <span>{op}</span>
-                        {tip && <span className={`mt-0.5 text-[10px] font-normal ${operator === op ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{tip}</span>}
+                      <button key={op} onClick={() => pickOperator(op)}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-accent transition-colors">
+                        <div>
+                          <span className={`font-medium capitalize ${isVirtual ? "text-success" : ""}`}>{op}</span>
+                          <p className="text-xs text-muted-foreground mt-0.5">{tip}</p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       </button>
                     );
                   })}
@@ -410,43 +379,87 @@ function VerifyPage() {
             </Card>
           )}
 
-          {/* Buy button */}
-          <Card className="p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                {selectedProduct ? (
-                  <>
-                    <div className="font-semibold capitalize">{selectedProduct.name} — {mode === "us" ? "🇺🇸 United States" : country}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Cost: <span className="font-bold text-foreground">{fmt(selectedProduct.price)}</span>
-                      {" "}· {selectedProduct.qty} numbers available
-                    </div>
-                  </>
+          {/* STEP 4 — Service picker */}
+          {step === "service" && country && (
+            <Card className="p-5">
+              <div className="flex items-center gap-3 mb-1">
+                <button onClick={() => setStep("operator")} className="text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div>
+                  <h2 className="font-semibold text-lg">Select Service</h2>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {country} · Operator: <strong>{operator}</strong>
+                    <button onClick={() => setStep("operator")} className="ml-2 text-primary hover:underline">change</button>
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative my-3">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input
+                  className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Search service (e.g. whatsapp)..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="h-80 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                {loadingProducts ? (
+                  <p className="p-4 text-sm text-muted-foreground">Loading services...</p>
+                ) : filteredProducts.length === 0 ? (
+                  <p className="p-4 text-sm text-muted-foreground">No services available for this operator</p>
                 ) : (
-                  <div className="text-sm text-muted-foreground">Select a service to continue</div>
+                  filteredProducts.map((p) => (
+                    <button key={p.name} onClick={() => setProduct(p.name)}
+                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors hover:bg-accent ${product === p.name ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>
+                      <div>
+                        <span className="font-medium capitalize">{p.name}</span>
+                        <p className={`text-xs mt-0.5 ${product === p.name ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                          {p.qty} available
+                        </p>
+                      </div>
+                      <span className="font-semibold text-sm tabular-nums">{fmt(p.price)}</span>
+                    </button>
+                  ))
                 )}
               </div>
-              <Button
-                disabled={!selectedProduct || buyMutation.isPending}
-                onClick={() => buyMutation.mutate({ country, product, operator, price_usd: selectedProduct!.price_usd ?? selectedProduct!.price })}
-                size="lg" className="shadow-glow"
-              >
-                <Smartphone className="mr-2 h-4 w-4" />
-                {buyMutation.isPending ? "Renting..." : "Get Number"}
-              </Button>
-            </div>
-          </Card>
-        </div>
+
+              {/* Buy button */}
+              {selectedProduct && (
+                <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="font-semibold capitalize">{selectedProduct.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {country} · {operator} · <span className="font-bold text-foreground">{fmt(selectedProduct.price)}</span>
+                      {" "}· {selectedProduct.qty} numbers available
+                    </div>
+                  </div>
+                  <Button
+                    disabled={buyMutation.isPending}
+                    onClick={() => buyMutation.mutate({ country, product, operator, price_usd: selectedProduct.price_usd ?? selectedProduct.price })}
+                    size="lg" className="shadow-glow shrink-0"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    {buyMutation.isPending ? "Renting..." : "Get Number"}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          )}
+        </>
       )}
 
       {/* History */}
       <Card className="p-5">
         <h3 className="mb-3 font-semibold">Recent Orders</h3>
-        {history.length === 0 ? (
+        {(history as any[]).length === 0 ? (
           <p className="text-sm text-muted-foreground">No orders yet.</p>
         ) : (
           <div className="divide-y divide-border">
-            {history.slice(0, 20).map((h: any) => (
+            {(history as any[]).slice(0, 20).map((h: any) => (
               <div key={h.id} className="flex items-center justify-between gap-2 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
