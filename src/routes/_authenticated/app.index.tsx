@@ -5,7 +5,7 @@ import { getMyProfile, getMyMessages, getPublicSettings } from "@/lib/sms.functi
 import { getMyDeposits } from "@/lib/funding.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, Wallet, MessageSquare, TrendingUp, X } from "lucide-react";
+import { Send, Wallet, MessageSquare, TrendingUp, X, Smartphone } from "lucide-react";
 import { useCurrency } from "@/lib/currency";
 import { useState, useEffect } from "react";
 
@@ -100,7 +100,7 @@ function Dashboard() {
   const balance = Number(me?.profile?.balance_usd ?? 0);
 
   return (
-    <div className="space-y-6 pb-24 md:pb-0">
+    <div className="space-y-6 space-y-6">
       <TelegramPopup settings={settingsData?.settings} />
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Welcome back</h1>
@@ -113,17 +113,31 @@ function Dashboard() {
         <StatCard label="Total Spent" value={fmt(spent)} icon={TrendingUp} />
       </div>
 
-      <Card className="overflow-hidden border-0 bg-gradient-brand p-6 text-white shadow-glow">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Send a message anywhere</h2>
-            <p className="mt-1 text-sm text-white/80">Reach any country worldwide via our global SMS network.</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="overflow-hidden border-0 bg-gradient-brand p-6 text-white shadow-glow">
+          <div className="flex h-full flex-col justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Send a message anywhere</h2>
+              <p className="mt-1 text-sm text-white/80">Reach any country worldwide via our global SMS network.</p>
+            </div>
+            <Button asChild size="lg" variant="secondary" className="w-fit">
+              <Link to="/app/send"><Send className="mr-2 h-4 w-4" /> Compose SMS</Link>
+            </Button>
           </div>
-          <Button asChild size="lg" variant="secondary">
-            <Link to="/app/send"><Send className="mr-2 h-4 w-4" /> Compose SMS</Link>
-          </Button>
-        </div>
-      </Card>
+        </Card>
+
+        <Card className="overflow-hidden border-0 bg-secondary p-6 shadow-soft">
+          <div className="flex h-full flex-col justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">SMS Verification</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Rent a number and receive your one-time code instantly.</p>
+            </div>
+            <Button asChild size="lg" className="w-fit">
+              <Link to="/app/verify"><Smartphone className="mr-2 h-4 w-4" /> Get a Number</Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="p-5">
