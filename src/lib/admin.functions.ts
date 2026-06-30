@@ -336,7 +336,7 @@ export const adminUpsertVerifyPrice = createServerFn({ method: "POST" })
       .from("verify_prices" as any)
       .upsert(
         { service: data.service.toLowerCase(), operator: data.operator.toLowerCase(), price_usd: data.price_usd },
-        { onConflict: "service,operator" }
+        { onConflict: "service,operator", ignoreDuplicates: false }
       );
     if (error) throw new Error(error.message);
     return { ok: true };
