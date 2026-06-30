@@ -449,14 +449,18 @@ function VerifyPricesPanel() {
     onSuccess: (_, vars) => {
       toast.success(`Saved ${vars.service} / ${vars.operator}`);
       setEditing((e) => { const n = { ...e }; delete n[vars.id]; return n; });
-      qc.invalidateQueries({ queryKey: ["admin-verify-prices"] });
+      qc.removeQueries({ queryKey: ["admin-verify-prices"] });
+      qc.refetchQueries({ queryKey: ["admin-verify-prices"] });
     },
     onError: (e: any) => toast.error(e?.message),
   });
 
   const delMutation = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-verify-prices"] }),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: ["admin-verify-prices"] });
+      qc.refetchQueries({ queryKey: ["admin-verify-prices"] });
+    },
     onError: (e: any) => toast.error(e?.message),
   });
 
@@ -471,7 +475,8 @@ function VerifyPricesPanel() {
     onSuccess: () => {
       toast.success("Saved");
       setNewRow({ country: "", service: "", operator: "any", price_ngn: "" });
-      qc.invalidateQueries({ queryKey: ["admin-verify-prices"] });
+      qc.removeQueries({ queryKey: ["admin-verify-prices"] });
+      qc.refetchQueries({ queryKey: ["admin-verify-prices"] });
     },
     onError: (e: any) => toast.error(e?.message),
   });
