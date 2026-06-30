@@ -57,9 +57,7 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
     }
 
     const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}`);
-    const entries = Object.entries(result as Record<string, any>);
-    if (entries.length === 0) return [];
-    return entries
+    return Object.entries(result as Record<string, any>)
       .filter(([, info]) => info.Qty > 0)
       .map(([name, info]) => {
         const custom = lookupPrice(name.toLowerCase(), data.operator || "any");
@@ -76,29 +74,9 @@ export const getVerifyOperators = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ country: z.string().min(1) }).parse(d))
   .handler(async ({ data }) => {
     try {
-      // Get operators by fetching products for "any" and reading which operators have stock
-      // Also try the operators endpoint as backup
-      const [productsResult, operatorsResult] = await Promise.allSettled([
-        fivesim(`/guest/products/${encodeURIComponent(data.country)}/any`),
-        fivesim(`/guest/operators/${encodeURIComponent(data.country)}`),
-      ]);
-
-      const ops = new Set<string>(["any"]);
-
-      // From operators endpoint
-      if (operatorsResult.status === "fulfilled") {
-        Object.keys(operatorsResult.value as Record<string, any>).forEach((op) => ops.add(op));
-      }
-
-      // From products endpoint — each product has a Category field listing operators
-      if (productsResult.status === "fulfilled") {
-        Object.values(productsResult.value as Record<string, any>).forEach((info: any) => {
-          if (info.Category) ops.add(info.Category);
-        });
-      }
-
-      const sorted = ["any", ...Array.from(ops).filter((o) => o !== "any").sort()];
-      return sorted;
+      const result = await fivesim(`/guest/operators/${encodeURIComponent(data.country)}`);
+      const ops = Object.keys(result as Record<string, any>);
+      return ["any", ...ops.filter((o) => o !== "any")];
     } catch {
       return ["any"];
     }
