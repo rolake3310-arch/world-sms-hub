@@ -72,7 +72,7 @@ function SettingsPage() {
   });
 
   return (
-    <div className="space-y-6 pb-24 md:pb-0">
+    <div className="space-y-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Account Settings</h1>
         <p className="text-sm text-muted-foreground">Manage your profile and security settings.</p>
