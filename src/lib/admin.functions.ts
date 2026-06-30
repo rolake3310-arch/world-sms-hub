@@ -316,13 +316,14 @@ export const adminListVerifyPrices = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const { data } = await context.supabase
       .from("verify_prices" as any)
-      .select("id, service, price_usd, created_at")
+      .select("id, service, operator, price_usd, created_at")
       .order("service");
     return (data ?? []) as any[];
   });
 
 const VerifyPriceInput = z.object({
-  service: z.string().min(1).max(80).toLowerCase(),
+  service: z.string().min(1).max(80),
+  operator: z.string().min(1).max(80).default("any"),
   price_usd: z.number().min(0).max(1000),
 });
 
@@ -333,7 +334,10 @@ export const adminUpsertVerifyPrice = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { error } = await context.supabase
       .from("verify_prices" as any)
-      .upsert({ service: data.service.toLowerCase(), price_usd: data.price_usd }, { onConflict: "service" });
+      .upsert(
+        { service: data.service.toLowerCase(), operator: data.operator.toLowerCase(), price_usd: data.price_usd },
+        { onConflict: "service,operator" }
+      );
     if (error) throw new Error(error.message);
     return { ok: true };
   });
