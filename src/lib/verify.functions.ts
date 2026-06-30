@@ -56,11 +56,17 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
         ?? priceMap.get(`${service}::any`);
     }
 
-    const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}`);
-    const entries = Object.entries(result as Record<string, any>);
+    let result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}`);
+    let entries = Object.entries(result as Record<string, any>).filter(([, info]) => info.Qty > 0);
+
+    // Fallback: if the chosen operator has zero stock, fall back to "any"
+    if (entries.length === 0 && data.operator !== "any") {
+      result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/any`);
+      entries = Object.entries(result as Record<string, any>).filter(([, info]) => info.Qty > 0);
+    }
+
     if (entries.length === 0) return [];
     return entries
-      .filter(([, info]) => info.Qty > 0)
       .map(([name, info]) => {
         const custom = lookupPrice(name.toLowerCase(), data.operator || "any");
         const price = custom !== undefined
@@ -76,28 +82,10 @@ export const getVerifyOperators = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ country: z.string().min(1) }).parse(d))
   .handler(async ({ data }) => {
     try {
-      // Get operators by fetching products for "any" and reading which operators have stock
-      // Also try the operators endpoint as backup
-      const [productsResult, operatorsResult] = await Promise.allSettled([
-        fivesim(`/guest/products/${encodeURIComponent(data.country)}/any`),
-        fivesim(`/guest/operators/${encodeURIComponent(data.country)}`),
-      ]);
-
-      const ops = new Set<string>(["any"]);
-
-      // From operators endpoint
-      if (operatorsResult.status === "fulfilled") {
-        Object.keys(operatorsResult.value as Record<string, any>).forEach((op) => ops.add(op));
-      }
-
-      // From products endpoint — each product has a Category field listing operators
-      if (productsResult.status === "fulfilled") {
-        Object.values(productsResult.value as Record<string, any>).forEach((info: any) => {
-          if (info.Category) ops.add(info.Category);
-        });
-      }
-
-      const sorted = ["any", ...Array.from(ops).filter((o) => o !== "any").sort()];
+      const result = await fivesim(`/guest/operators/${encodeURIComponent(data.country)}`);
+      // 5sim returns { "any": [...], "operator1": [...], ... } keyed by operator name
+      const ops = Object.keys(result as Record<string, any>);
+      const sorted = ["any", ...ops.filter((o) => o !== "any").sort()];
       return sorted;
     } catch {
       return ["any"];
