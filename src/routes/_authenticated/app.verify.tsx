@@ -45,6 +45,7 @@ const OPERATOR_TIPS: Record<string, string> = {
 
 function VerifyPage() {
   const qc = useQueryClient();
+  const { fmt } = useCurrency();
   const fetchCountries = useServerFn(getVerifyCountries);
   const fetchProducts = useServerFn(getVerifyProducts);
   const fetchOperators = useServerFn(getVerifyOperators);
@@ -64,7 +65,6 @@ function VerifyPage() {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { fmt } = useCurrency();
 
   // Countdown timer
   useEffect(() => {
