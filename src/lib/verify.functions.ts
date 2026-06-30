@@ -46,16 +46,21 @@ export const getVerifyProducts = createServerFn({ method: "GET" })
 
     const { data: customPrices } = await context.supabase
       .from("verify_prices" as any)
-      .select("service, price_usd");
+      .select("service, operator, price_usd");
+    // Build map keyed by "service::operator", fallback to "service::any"
     const priceMap = new Map(
-      (customPrices ?? []).map((p: any) => [p.service.toLowerCase(), Number(p.price_usd)])
+      (customPrices ?? []).map((p: any) => [`${p.service.toLowerCase()}::${(p.operator ?? "any").toLowerCase()}`, Number(p.price_usd)])
     );
+    function lookupPrice(service: string, operator: string): number | undefined {
+      return priceMap.get(`${service}::${operator.toLowerCase()}`)
+        ?? priceMap.get(`${service}::any`);
+    }
 
     const result = await fivesim(`/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}`);
     return Object.entries(result as Record<string, any>)
       .filter(([, info]) => info.Qty > 0)
       .map(([name, info]) => {
-        const custom = priceMap.get(name.toLowerCase());
+        const custom = lookupPrice(name.toLowerCase(), data.operator || "any");
         const price = custom !== undefined
           ? custom
           : Number((Number(info.Price) * markup).toFixed(4));
@@ -91,10 +96,47 @@ export const buyVerifyNumber = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Debit user balance first
+    // ── Server-side price verification ──────────────────────────────────────
+    // Never trust the price from the frontend — re-fetch the real 5sim price
+    // and apply your markup. This prevents users sending a manipulated price.
+    const { data: settings } = await context.supabase
+      .from("app_settings").select("default_price_usd, verify_markup").eq("id", 1).maybeSingle();
+    const markup = Number((settings as any)?.verify_markup ?? 1.5);
+
+    const { data: customPrices } = await context.supabase
+      .from("verify_prices" as any).select("service, operator, price_usd");
+    const priceMap = new Map(
+      (customPrices ?? []).map((p: any) => [`${p.service.toLowerCase()}::${(p.operator ?? "any").toLowerCase()}`, Number(p.price_usd)])
+    );
+    function lookupCustom(service: string, operator: string): number | undefined {
+      return priceMap.get(`${service}::${operator.toLowerCase()}`)
+        ?? priceMap.get(`${service}::any`);
+    }
+
+    const products = await fivesim(
+      `/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(data.operator || "any")}`
+    ) as Record<string, any>;
+
+    const productInfo = products[data.product];
+    if (!productInfo || productInfo.Qty <= 0) throw new Error("Service not available right now");
+
+    const rawCost = Number(productInfo.Price);
+    const customPrice = lookupCustom(data.product.toLowerCase(), data.operator || "any");
+    const correctPrice = customPrice !== undefined
+      ? customPrice
+      : Number((rawCost * markup).toFixed(4));
+
+    if (data.price_usd < correctPrice - 0.0001) {
+      throw new Error("Price mismatch — please refresh and try again");
+    }
+
+    const chargeAmount = correctPrice;
+    // ────────────────────────────────────────────────────────────────────────
+
+    // Debit user balance
     const { error: debitErr } = await supabaseAdmin.rpc("debit_balance", {
       _user_id: context.userId,
-      _amount: data.price_usd,
+      _amount: chargeAmount,
     });
     if (debitErr) throw new Error(debitErr.message || "Insufficient balance");
 
@@ -105,7 +147,7 @@ export const buyVerifyNumber = createServerFn({ method: "POST" })
       );
     } catch (e) {
       // Refund if 5sim call failed
-      await supabaseAdmin.rpc("credit_balance", { _user_id: context.userId, _amount: data.price_usd });
+      await supabaseAdmin.rpc("credit_balance", { _user_id: context.userId, _amount: chargeAmount });
       throw e;
     }
 
@@ -119,7 +161,7 @@ export const buyVerifyNumber = createServerFn({ method: "POST" })
         phone: order.phone,
         country: data.country,
         service: data.product,
-        cost_usd: data.price_usd,
+        cost_usd: chargeAmount,
         status: order.status ?? "PENDING",
         expires_at: expiresAt,
       })
