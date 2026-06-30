@@ -92,7 +92,8 @@ function VerifyPage() {
   const { data: products = [], isFetching: loadingProducts } = useQuery({
     queryKey: ["verify-products", country, operator],
     queryFn: () => fetchProducts({ data: { country, operator } }),
-    enabled: !!country && step === "service",
+    enabled: !!country && !!operator,
+    staleTime: 1000 * 60 * 2, // cache 2 mins
   });
 
   const { data: history = [] } = useQuery({
