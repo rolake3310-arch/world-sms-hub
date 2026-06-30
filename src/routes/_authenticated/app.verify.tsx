@@ -86,15 +86,20 @@ function VerifyPage() {
     queryKey: ["verify-operators", country],
     queryFn: () => fetchOperators({ data: { country } }),
     enabled: !!country,
-    staleTime: 1000 * 60 * 5, // cache 5 mins
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: products = [], isFetching: loadingProducts } = useQuery({
     queryKey: ["verify-products", country, operator],
     queryFn: () => fetchProducts({ data: { country, operator } }),
     enabled: !!country && !!operator,
-    staleTime: 1000 * 60 * 2, // cache 2 mins
+    staleTime: 1000 * 60 * 2,
   });
+
+  function pickOperator(op: string) {
+    setOperator(op); setProduct("");
+    setStep("service");
+  }
 
   const { data: history = [] } = useQuery({
     queryKey: ["my-verifications"],
@@ -175,11 +180,6 @@ function VerifyPage() {
   function pickCountry(name: string) {
     setCountry(name); setOperator("any"); setProduct("");
     setStep("operator");
-  }
-
-  function pickOperator(op: string) {
-    setOperator(op); setProduct("");
-    setStep("service");
   }
 
   const selectedProduct = products.find((p) => p.name === product);
