@@ -249,3 +249,45 @@ export const getMyVerifications = createServerFn({ method: "GET" })
       .limit(100);
     return (data ?? []) as any[];
   });
+
+// ── Get operators for a specific service with prices ──────────────────────────
+export const getServiceOperators = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    country: z.string().min(1),
+    service: z.string().min(1),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { calcPrice } = await getPricing(context.supabase);
+
+    // Fetch all operators for this country
+    let operatorList: string[] = ["any"];
+    try {
+      const ops = await fivesim(`/guest/operators/${encodeURIComponent(data.country)}`);
+      operatorList = ["any", ...Object.keys(ops as Record<string, any>).filter(o => o !== "any").sort()];
+    } catch {}
+
+    // For each operator, get the price and qty for this specific service
+    const results: { operator: string; price: number; qty: number; raw_cost: number }[] = [];
+
+    await Promise.all(operatorList.map(async (op) => {
+      try {
+        const products = await fivesim(
+          `/guest/products/${encodeURIComponent(data.country)}/${encodeURIComponent(op)}`
+        ) as Record<string, any>;
+        const info = products[data.service];
+        if (info && info.Qty > 0) {
+          const rawCost = Number(info.Price);
+          const price = calcPrice(rawCost, data.service, op);
+          results.push({ operator: op, price, qty: Number(info.Qty), raw_cost: rawCost });
+        }
+      } catch {}
+    }));
+
+    // Sort: any first, then by price ascending
+    return results.sort((a, b) => {
+      if (a.operator === "any") return -1;
+      if (b.operator === "any") return 1;
+      return a.price - b.price;
+    });
+  });
