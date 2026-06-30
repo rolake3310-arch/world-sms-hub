@@ -19,7 +19,7 @@ function HistoryPage() {
   const { fmt } = useCurrency();
 
   return (
-    <div className="space-y-6 pb-24 md:pb-0">
+    <div className="space-y-6 space-y-6">
       <h1 className="text-2xl font-bold tracking-tight md:text-3xl">History</h1>
       <Tabs defaultValue="messages">
         <TabsList>
