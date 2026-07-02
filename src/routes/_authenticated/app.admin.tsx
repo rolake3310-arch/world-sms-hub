@@ -11,19 +11,36 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMyProfile, getPublicSettings } from "@/lib/sms.functions";
 import {
-  adminGetStats, adminUpdateSettings, adminListWallets, adminUpsertWallet, adminDeleteWallet,
-  adminUpsertCountryPrice, adminDeleteCountryPrice,
-  adminListDeposits, adminReviewDeposit,
-  adminListUsers, adminAdjustBalance, adminSetUserStatus, adminSetUserRole,
+  adminGetStats,
+  adminUpdateSettings,
+  adminListWallets,
+  adminUpsertWallet,
+  adminDeleteWallet,
+  adminUpsertCountryPrice,
+  adminDeleteCountryPrice,
+  adminListDeposits,
+  adminReviewDeposit,
+  adminListUsers,
+  adminAdjustBalance,
+  adminSetUserStatus,
+  adminSetUserRole,
   adminListMessages,
-  adminListBankAccounts, adminUpsertBankAccount, adminDeleteBankAccount,
-  adminListVerifyPrices, adminUpsertVerifyPrice, adminDeleteVerifyPrice,
+  adminListBankAccounts,
+  adminUpsertBankAccount,
+  adminDeleteBankAccount,
+  adminListVerifyPrices,
+  adminUpsertVerifyPrice,
+  adminDeleteVerifyPrice,
+  adminGetSmmBalance,
+  adminListSmmOrders,
+  adminListSmmPrices,
+  adminUpsertSmmPrice,
+  adminDeleteSmmPrice,
 } from "@/lib/admin.functions";
 import { Textarea } from "@/components/ui/textarea";
 import { getCountryPrices } from "@/lib/sms.functions";
 import { getVerifyCountries } from "@/lib/verify.functions";
 import { ShieldAlert, Trash2 } from "lucide-react";
-
 
 export const Route = createFileRoute("/_authenticated/app/admin")({
   component: AdminPage,
@@ -51,20 +68,41 @@ function AdminPage() {
           <TabsTrigger value="banks">Bank accounts</TabsTrigger>
           <TabsTrigger value="countries">Country prices</TabsTrigger>
           <TabsTrigger value="verify-prices">Verify Prices</TabsTrigger>
+          <TabsTrigger value="smm">Grow Socials</TabsTrigger>
           <TabsTrigger value="deposits">Deposits</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
         </TabsList>
-        <TabsContent value="overview"><Overview /></TabsContent>
-        <TabsContent value="settings"><SettingsPanel /></TabsContent>
-        <TabsContent value="wallets"><WalletsPanel /></TabsContent>
-        <TabsContent value="banks"><BanksPanel /></TabsContent>
-        <TabsContent value="countries"><CountriesPanel /></TabsContent>
-        <TabsContent value="verify-prices"><VerifyPricesPanel /></TabsContent>
-        <TabsContent value="deposits"><DepositsPanel /></TabsContent>
-        <TabsContent value="users"><UsersPanel /></TabsContent>
-        <TabsContent value="messages"><MessagesPanel /></TabsContent>
-
+        <TabsContent value="overview">
+          <Overview />
+        </TabsContent>
+        <TabsContent value="settings">
+          <SettingsPanel />
+        </TabsContent>
+        <TabsContent value="wallets">
+          <WalletsPanel />
+        </TabsContent>
+        <TabsContent value="banks">
+          <BanksPanel />
+        </TabsContent>
+        <TabsContent value="countries">
+          <CountriesPanel />
+        </TabsContent>
+        <TabsContent value="verify-prices">
+          <VerifyPricesPanel />
+        </TabsContent>
+        <TabsContent value="smm">
+          <SmmPanel />
+        </TabsContent>
+        <TabsContent value="deposits">
+          <DepositsPanel />
+        </TabsContent>
+        <TabsContent value="users">
+          <UsersPanel />
+        </TabsContent>
+        <TabsContent value="messages">
+          <MessagesPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -101,26 +139,38 @@ function SettingsPanel() {
   const [form, setForm] = useState<any>(null);
   const f = form ?? s;
   const m = useMutation({
-    mutationFn: () => save({ data: {
-      crypto_enabled: !!f?.crypto_enabled,
-      squad_enabled: !!f?.squad_enabled,
-      bank_enabled: !!f?.bank_enabled,
-      bank_instructions: f?.bank_instructions ?? null,
-      min_fund_usd: Number(f?.min_fund_usd ?? 0),
-      default_price_usd: Number(f?.default_price_usd ?? 0.05),
-      squad_public_key: f?.squad_public_key ?? null,
-      squad_environment: f?.squad_environment ?? "sandbox",
-      verify_markup: Number(f?.verify_markup ?? 1.5),
-      site_currency: f?.site_currency ?? "USD",
-      usd_to_ngn: Number(f?.usd_to_ngn ?? 1600),
-      telegram_popup_enabled: !!f?.telegram_popup_enabled,
-      telegram_url: f?.telegram_url ?? "",
-      telegram_popup_title: f?.telegram_popup_title ?? "Join Our Telegram!",
-      telegram_popup_subtitle: f?.telegram_popup_subtitle ?? "Official channel · Free activation keys",
-      telegram_popup_body: f?.telegram_popup_body ?? "Stay updated and get free activation keys by joining our Telegram channel 🎁",
-    } }),
+    mutationFn: () =>
+      save({
+        data: {
+          crypto_enabled: !!f?.crypto_enabled,
+          squad_enabled: !!f?.squad_enabled,
+          bank_enabled: !!f?.bank_enabled,
+          bank_instructions: f?.bank_instructions ?? null,
+          min_fund_usd: Number(f?.min_fund_usd ?? 0),
+          default_price_usd: Number(f?.default_price_usd ?? 0.05),
+          squad_public_key: f?.squad_public_key ?? null,
+          squad_environment: f?.squad_environment ?? "sandbox",
+          verify_markup: Number(f?.verify_markup ?? 1.5),
+          site_currency: f?.site_currency ?? "USD",
+          usd_to_ngn: Number(f?.usd_to_ngn ?? 1600),
+          telegram_popup_enabled: !!f?.telegram_popup_enabled,
+          telegram_url: f?.telegram_url ?? "",
+          telegram_popup_title: f?.telegram_popup_title ?? "Join Our Telegram!",
+          telegram_popup_subtitle:
+            f?.telegram_popup_subtitle ?? "Official channel · Free activation keys",
+          telegram_popup_body:
+            f?.telegram_popup_body ??
+            "Stay updated and get free activation keys by joining our Telegram channel 🎁",
+          smm_enabled: !!f?.smm_enabled,
+          smm_api_url: f?.smm_api_url || "https://justanotherpanel.com/api/v2",
+          smm_markup: Number(f?.smm_markup ?? 1.3),
+        },
+      }),
 
-    onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onSuccess: () => {
+      toast.success("Saved");
+      qc.invalidateQueries({ queryKey: ["public-settings"] });
+    },
     onError: (e: any) => toast.error(e?.message),
   });
   if (!f) return null;
@@ -129,106 +179,231 @@ function SettingsPanel() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-semibold">Crypto funding</div>
-          <div className="text-xs text-muted-foreground">Show wallet addresses & manual approval</div>
+          <div className="text-xs text-muted-foreground">
+            Show wallet addresses & manual approval
+          </div>
         </div>
-        <Switch checked={!!f.crypto_enabled} onCheckedChange={(v) => setForm({ ...f, crypto_enabled: v })} />
+        <Switch
+          checked={!!f.crypto_enabled}
+          onCheckedChange={(v) => setForm({ ...f, crypto_enabled: v })}
+        />
       </div>
       <div className="flex items-center justify-between">
         <div>
           <div className="font-semibold">Bank transfer</div>
-          <div className="text-xs text-muted-foreground">Show bank account(s) & manual approval</div>
+          <div className="text-xs text-muted-foreground">
+            Show bank account(s) & manual approval
+          </div>
         </div>
-        <Switch checked={!!f.bank_enabled} onCheckedChange={(v) => setForm({ ...f, bank_enabled: v })} />
+        <Switch
+          checked={!!f.bank_enabled}
+          onCheckedChange={(v) => setForm({ ...f, bank_enabled: v })}
+        />
       </div>
       <div className="flex items-center justify-between">
         <div>
           <div className="font-semibold">Squad (squadco.com)</div>
           <div className="text-xs text-muted-foreground">Card / bank checkout</div>
         </div>
-        <Switch checked={!!f.squad_enabled} onCheckedChange={(v) => setForm({ ...f, squad_enabled: v })} />
+        <Switch
+          checked={!!f.squad_enabled}
+          onCheckedChange={(v) => setForm({ ...f, squad_enabled: v })}
+        />
       </div>
       <div>
         <Label>Minimum funding amount (USD)</Label>
-        <Input type="number" step="0.01" value={f.min_fund_usd ?? 0} onChange={(e) => setForm({ ...f, min_fund_usd: e.target.value })} />
-        <p className="mt-1 text-xs text-muted-foreground">Applies to crypto, bank transfer, and Squad. Set 0 to disable.</p>
+        <Input
+          type="number"
+          step="0.01"
+          value={f.min_fund_usd ?? 0}
+          onChange={(e) => setForm({ ...f, min_fund_usd: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Applies to crypto, bank transfer, and Squad. Set 0 to disable.
+        </p>
       </div>
       <div>
         <Label>Bank transfer instructions (shown to users)</Label>
-        <Textarea rows={3} value={f.bank_instructions ?? ""} onChange={(e) => setForm({ ...f, bank_instructions: e.target.value })} placeholder="E.g. Use your email as the transfer reference. Allow 1-24h for review." />
+        <Textarea
+          rows={3}
+          value={f.bank_instructions ?? ""}
+          onChange={(e) => setForm({ ...f, bank_instructions: e.target.value })}
+          placeholder="E.g. Use your email as the transfer reference. Allow 1-24h for review."
+        />
       </div>
       <div>
         <Label>Default price per SMS segment (USD)</Label>
-        <Input type="number" step="0.0001" value={f.default_price_usd} onChange={(e) => setForm({ ...f, default_price_usd: e.target.value })} />
+        <Input
+          type="number"
+          step="0.0001"
+          value={f.default_price_usd}
+          onChange={(e) => setForm({ ...f, default_price_usd: e.target.value })}
+        />
       </div>
       <div>
         <Label>SMS Verify markup multiplier</Label>
-        <Input type="number" step="0.1" min="1" value={f.verify_markup ?? 1.5} onChange={(e) => setForm({ ...f, verify_markup: e.target.value })} />
+        <Input
+          type="number"
+          step="0.1"
+          min="1"
+          value={f.verify_markup ?? 1.5}
+          onChange={(e) => setForm({ ...f, verify_markup: e.target.value })}
+        />
         <p className="mt-1 text-xs text-muted-foreground">
-          Multiplier applied to 5sim prices before showing to users. e.g. <strong>1.5</strong> = 50% profit, <strong>2</strong> = 100% profit. Minimum is 1 (no markup).
+          Multiplier applied to 5sim prices before showing to users. e.g. <strong>1.5</strong> = 50%
+          profit, <strong>2</strong> = 100% profit. Minimum is 1 (no markup).
         </p>
       </div>
       <div>
         <Label>Site currency</Label>
-        <select className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        <select
+          className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={f.site_currency ?? "USD"}
-          onChange={(e) => setForm({ ...f, site_currency: e.target.value })}>
+          onChange={(e) => setForm({ ...f, site_currency: e.target.value })}
+        >
           <option value="USD">USD ($)</option>
           <option value="NGN">NGN (₦)</option>
         </select>
-        <p className="mt-1 text-xs text-muted-foreground">All prices shown to users will display in this currency.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          All prices shown to users will display in this currency.
+        </p>
       </div>
       <div>
         <Label>USD → NGN exchange rate</Label>
-        <Input type="number" step="1" min="1" value={f.usd_to_ngn ?? 1600} onChange={(e) => setForm({ ...f, usd_to_ngn: e.target.value })} />
+        <Input
+          type="number"
+          step="1"
+          min="1"
+          value={f.usd_to_ngn ?? 1600}
+          onChange={(e) => setForm({ ...f, usd_to_ngn: e.target.value })}
+        />
         <p className="mt-1 text-xs text-muted-foreground">
-          Live rate today: <strong>$1 ≈ ₦1,388</strong> (black market ~₦1,400). Set your own rate to include your spread.
+          Live rate today: <strong>$1 ≈ ₦1,388</strong> (black market ~₦1,400). Set your own rate to
+          include your spread.
         </p>
       </div>
 
       <div>
         <Label>Squad environment</Label>
-        <select className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        <select
+          className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={f.squad_environment}
-          onChange={(e) => setForm({ ...f, squad_environment: e.target.value })}>
+          onChange={(e) => setForm({ ...f, squad_environment: e.target.value })}
+        >
           <option value="sandbox">Sandbox (test)</option>
           <option value="live">Live</option>
         </select>
       </div>
       <div>
         <Label>Squad public key (optional, for inline checkout)</Label>
-        <Input value={f.squad_public_key ?? ""} onChange={(e) => setForm({ ...f, squad_public_key: e.target.value })} />
-        <p className="mt-1 text-xs text-muted-foreground">Add the Squad SECRET key as a secret named <code>SQUAD_SECRET_KEY</code> via project settings.</p>
+        <Input
+          value={f.squad_public_key ?? ""}
+          onChange={(e) => setForm({ ...f, squad_public_key: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Add the Squad SECRET key as a secret named <code>SQUAD_SECRET_KEY</code> via project
+          settings.
+        </p>
       </div>
+      {/* ── SMM / Grow Socials ── */}
+      <div className="border-t pt-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="font-semibold">Grow Socials (SMM)</div>
+            <div className="text-xs text-muted-foreground">
+              Followers, likes, views boosting via an SMM panel API
+            </div>
+          </div>
+          <Switch
+            checked={!!f.smm_enabled}
+            onCheckedChange={(v) => setForm({ ...f, smm_enabled: v })}
+          />
+        </div>
+        <div className="space-y-3">
+          <div>
+            <Label>SMM provider API URL</Label>
+            <Input
+              value={f.smm_api_url ?? ""}
+              onChange={(e) => setForm({ ...f, smm_api_url: e.target.value })}
+              placeholder="https://justanotherpanel.com/api/v2"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Works with any panel that implements the standard SMM API
+              (action=services/add/status/balance) — e.g. JustAnotherPanel, Peakerr, SMMKings. Add
+              the API key as a secret named <code>SMM_API_KEY</code> via project settings.
+            </p>
+          </div>
+          <div>
+            <Label>Markup multiplier</Label>
+            <Input
+              type="number"
+              step="0.1"
+              min="1"
+              value={f.smm_markup ?? 1.3}
+              onChange={(e) => setForm({ ...f, smm_markup: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Applied to the provider's per-1000 rate before showing to users. e.g.{" "}
+              <strong>1.3</strong> = 30% profit. Override per-service under the "Grow Socials" tab.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* ── Telegram Popup ── */}
       <div className="border-t pt-4">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <div className="font-semibold">Telegram channel popup</div>
-            <div className="text-xs text-muted-foreground">Shows to users every time they load the dashboard</div>
+            <div className="text-xs text-muted-foreground">
+              Shows to users every time they load the dashboard
+            </div>
           </div>
-          <Switch checked={!!f.telegram_popup_enabled} onCheckedChange={(v) => setForm({ ...f, telegram_popup_enabled: v })} />
+          <Switch
+            checked={!!f.telegram_popup_enabled}
+            onCheckedChange={(v) => setForm({ ...f, telegram_popup_enabled: v })}
+          />
         </div>
         <div className="space-y-3">
           <div>
             <Label>Telegram channel link</Label>
-            <Input value={f.telegram_url ?? ""} onChange={(e) => setForm({ ...f, telegram_url: e.target.value })} placeholder="https://t.me/yourchannel" />
+            <Input
+              value={f.telegram_url ?? ""}
+              onChange={(e) => setForm({ ...f, telegram_url: e.target.value })}
+              placeholder="https://t.me/yourchannel"
+            />
           </div>
           <div>
             <Label>Popup title</Label>
-            <Input value={f.telegram_popup_title ?? ""} onChange={(e) => setForm({ ...f, telegram_popup_title: e.target.value })} placeholder="Join Our Telegram!" />
+            <Input
+              value={f.telegram_popup_title ?? ""}
+              onChange={(e) => setForm({ ...f, telegram_popup_title: e.target.value })}
+              placeholder="Join Our Telegram!"
+            />
           </div>
           <div>
             <Label>Popup subtitle</Label>
-            <Input value={f.telegram_popup_subtitle ?? ""} onChange={(e) => setForm({ ...f, telegram_popup_subtitle: e.target.value })} placeholder="Official channel · Free activation keys" />
+            <Input
+              value={f.telegram_popup_subtitle ?? ""}
+              onChange={(e) => setForm({ ...f, telegram_popup_subtitle: e.target.value })}
+              placeholder="Official channel · Free activation keys"
+            />
           </div>
           <div>
             <Label>Popup body text</Label>
-            <Textarea rows={2} value={f.telegram_popup_body ?? ""} onChange={(e) => setForm({ ...f, telegram_popup_body: e.target.value })} placeholder="Stay updated and get free activation keys by joining our Telegram channel 🎁" />
+            <Textarea
+              rows={2}
+              value={f.telegram_popup_body ?? ""}
+              onChange={(e) => setForm({ ...f, telegram_popup_body: e.target.value })}
+              placeholder="Stay updated and get free activation keys by joining our Telegram channel 🎁"
+            />
           </div>
         </div>
       </div>
 
-      <Button onClick={() => m.mutate()} disabled={m.isPending}>{m.isPending ? "Saving..." : "Save settings"}</Button>
+      <Button onClick={() => m.mutate()} disabled={m.isPending}>
+        {m.isPending ? "Saving..." : "Save settings"}
+      </Button>
     </Card>
   );
 }
@@ -239,39 +414,92 @@ function WalletsPanel() {
   const del = useServerFn(adminDeleteWallet);
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["admin-wallets"], queryFn: () => list() });
-  const [form, setForm] = useState({ label: "", asset: "USDT", network: "TRC20", address: "", active: true });
+  const [form, setForm] = useState({
+    label: "",
+    asset: "USDT",
+    network: "TRC20",
+    address: "",
+    active: true,
+  });
   const m = useMutation({
     mutationFn: () => upsert({ data: form }),
-    onSuccess: () => { toast.success("Saved"); setForm({ label: "", asset: "USDT", network: "TRC20", address: "", active: true }); qc.invalidateQueries({ queryKey: ["admin-wallets"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onSuccess: () => {
+      toast.success("Saved");
+      setForm({ label: "", asset: "USDT", network: "TRC20", address: "", active: true });
+      qc.invalidateQueries({ queryKey: ["admin-wallets"] });
+      qc.invalidateQueries({ queryKey: ["public-settings"] });
+    },
     onError: (e: any) => toast.error(e?.message),
   });
   const dm = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-wallets"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-wallets"] });
+      qc.invalidateQueries({ queryKey: ["public-settings"] });
+    },
   });
 
   return (
     <div className="mt-4 grid gap-4 md:grid-cols-2">
       <Card className="space-y-3 p-5">
         <h3 className="font-semibold">Add wallet</h3>
-        <div><Label>Label</Label><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="USDT TRC20" /></div>
-        <div className="grid grid-cols-2 gap-2">
-          <div><Label>Asset</Label><Input value={form.asset} onChange={(e) => setForm({ ...form, asset: e.target.value })} /></div>
-          <div><Label>Network</Label><Input value={form.network} onChange={(e) => setForm({ ...form, network: e.target.value })} /></div>
+        <div>
+          <Label>Label</Label>
+          <Input
+            value={form.label}
+            onChange={(e) => setForm({ ...form, label: e.target.value })}
+            placeholder="USDT TRC20"
+          />
         </div>
-        <div><Label>Address</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="font-mono" /></div>
-        <Button onClick={() => m.mutate()} disabled={!form.label || !form.address || m.isPending}>Add</Button>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label>Asset</Label>
+            <Input
+              value={form.asset}
+              onChange={(e) => setForm({ ...form, asset: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Network</Label>
+            <Input
+              value={form.network}
+              onChange={(e) => setForm({ ...form, network: e.target.value })}
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Address</Label>
+          <Input
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            className="font-mono"
+          />
+        </div>
+        <Button onClick={() => m.mutate()} disabled={!form.label || !form.address || m.isPending}>
+          Add
+        </Button>
       </Card>
       <Card className="p-5">
         <h3 className="mb-3 font-semibold">Existing wallets</h3>
         <ul className="space-y-2">
           {(data ?? []).map((w: any) => (
-            <li key={w.id} className="flex items-start justify-between gap-2 rounded border border-border p-2 text-sm">
+            <li
+              key={w.id}
+              className="flex items-start justify-between gap-2 rounded border border-border p-2 text-sm"
+            >
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">{w.label} <span className="text-xs text-muted-foreground">· {w.asset}{w.network ? ` (${w.network})` : ""}</span></div>
+                <div className="font-semibold">
+                  {w.label}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    · {w.asset}
+                    {w.network ? ` (${w.network})` : ""}
+                  </span>
+                </div>
                 <div className="break-all font-mono text-xs text-muted-foreground">{w.address}</div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => dm.mutate(w.id)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" onClick={() => dm.mutate(w.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </li>
           ))}
           {(data ?? []).length === 0 && <li className="text-sm text-muted-foreground">None.</li>}
@@ -289,10 +517,19 @@ function CountriesPanel() {
   const { data } = useQuery({ queryKey: ["country-prices"], queryFn: () => list() });
   const [form, setForm] = useState({ country_code: "", country_name: "", price_usd: "" });
   const m = useMutation({
-    mutationFn: () => upsert({ data: {
-      country_code: form.country_code.toUpperCase(), country_name: form.country_name, price_usd: Number(form.price_usd),
-    }}),
-    onSuccess: () => { toast.success("Saved"); setForm({ country_code: "", country_name: "", price_usd: "" }); qc.invalidateQueries({ queryKey: ["country-prices"] }); },
+    mutationFn: () =>
+      upsert({
+        data: {
+          country_code: form.country_code.toUpperCase(),
+          country_name: form.country_name,
+          price_usd: Number(form.price_usd),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Saved");
+      setForm({ country_code: "", country_name: "", price_usd: "" });
+      qc.invalidateQueries({ queryKey: ["country-prices"] });
+    },
     onError: (e: any) => toast.error(e?.message),
   });
   const dm = useMutation({
@@ -303,22 +540,67 @@ function CountriesPanel() {
     <div className="mt-4 grid gap-4 md:grid-cols-[320px_1fr]">
       <Card className="space-y-3 p-5">
         <h3 className="font-semibold">Add / update price</h3>
-        <div><Label>Country code (ISO 2)</Label><Input maxLength={2} value={form.country_code} onChange={(e) => setForm({ ...form, country_code: e.target.value.toUpperCase() })} placeholder="US" /></div>
-        <div><Label>Country name</Label><Input value={form.country_name} onChange={(e) => setForm({ ...form, country_name: e.target.value })} placeholder="United States" /></div>
-        <div><Label>Price per segment (USD)</Label><Input type="number" step="0.0001" value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: e.target.value })} /></div>
-        <Button onClick={() => m.mutate()} disabled={!form.country_code || !form.country_name || !form.price_usd || m.isPending}>Save</Button>
+        <div>
+          <Label>Country code (ISO 2)</Label>
+          <Input
+            maxLength={2}
+            value={form.country_code}
+            onChange={(e) => setForm({ ...form, country_code: e.target.value.toUpperCase() })}
+            placeholder="US"
+          />
+        </div>
+        <div>
+          <Label>Country name</Label>
+          <Input
+            value={form.country_name}
+            onChange={(e) => setForm({ ...form, country_name: e.target.value })}
+            placeholder="United States"
+          />
+        </div>
+        <div>
+          <Label>Price per segment (USD)</Label>
+          <Input
+            type="number"
+            step="0.0001"
+            value={form.price_usd}
+            onChange={(e) => setForm({ ...form, price_usd: e.target.value })}
+          />
+        </div>
+        <Button
+          onClick={() => m.mutate()}
+          disabled={!form.country_code || !form.country_name || !form.price_usd || m.isPending}
+        >
+          Save
+        </Button>
       </Card>
       <Card className="p-0">
         <table className="w-full text-sm">
-          <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="p-3">Code</th><th className="p-3">Country</th><th className="p-3 text-right">Price</th><th className="p-3"></th></tr></thead>
+          <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="p-3">Code</th>
+              <th className="p-3">Country</th>
+              <th className="p-3 text-right">Price</th>
+              <th className="p-3"></th>
+            </tr>
+          </thead>
           <tbody>
-            {(data ?? []).length === 0 && <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Using default price for all countries.</td></tr>}
+            {(data ?? []).length === 0 && (
+              <tr>
+                <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                  Using default price for all countries.
+                </td>
+              </tr>
+            )}
             {(data ?? []).map((c) => (
               <tr key={c.country_code} className="border-t border-border">
                 <td className="p-3 font-mono">{c.country_code}</td>
                 <td className="p-3">{c.country_name}</td>
                 <td className="p-3 text-right tabular-nums">${Number(c.price_usd).toFixed(4)}</td>
-                <td className="p-3 text-right"><Button size="sm" variant="ghost" onClick={() => dm.mutate(c.country_code)}><Trash2 className="h-4 w-4" /></Button></td>
+                <td className="p-3 text-right">
+                  <Button size="sm" variant="ghost" onClick={() => dm.mutate(c.country_code)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -335,30 +617,67 @@ function DepositsPanel() {
   const { data } = useQuery({ queryKey: ["admin-deposits"], queryFn: () => list() });
   const m = useMutation({
     mutationFn: (v: { id: string; action: "approve" | "reject" }) => review({ data: v }),
-    onSuccess: () => { toast.success("Updated"); qc.invalidateQueries({ queryKey: ["admin-deposits"] }); qc.invalidateQueries({ queryKey: ["admin-stats"] }); },
+    onSuccess: () => {
+      toast.success("Updated");
+      qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+    },
     onError: (e: any) => toast.error(e?.message),
   });
   return (
     <Card className="mt-4 p-0">
       <table className="w-full text-sm">
         <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
-          <tr><th className="p-3">Date</th><th className="p-3">User</th><th className="p-3">Method</th><th className="p-3">Amount</th><th className="p-3">Reference</th><th className="p-3">Status</th><th className="p-3"></th></tr>
+          <tr>
+            <th className="p-3">Date</th>
+            <th className="p-3">User</th>
+            <th className="p-3">Method</th>
+            <th className="p-3">Amount</th>
+            <th className="p-3">Reference</th>
+            <th className="p-3">Status</th>
+            <th className="p-3"></th>
+          </tr>
         </thead>
         <tbody>
-          {(data ?? []).length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No deposits.</td></tr>}
+          {(data ?? []).length === 0 && (
+            <tr>
+              <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                No deposits.
+              </td>
+            </tr>
+          )}
           {(data ?? []).map((d: any) => (
             <tr key={d.id} className="border-t border-border">
-              <td className="p-3 whitespace-nowrap text-xs">{new Date(d.created_at).toLocaleString()}</td>
+              <td className="p-3 whitespace-nowrap text-xs">
+                {new Date(d.created_at).toLocaleString()}
+              </td>
               <td className="p-3 text-xs">{d.user_email}</td>
-              <td className="p-3 capitalize">{d.method} {d.asset ? <span className="text-xs text-muted-foreground">({d.asset})</span> : ""}</td>
+              <td className="p-3 capitalize">
+                {d.method}{" "}
+                {d.asset ? <span className="text-xs text-muted-foreground">({d.asset})</span> : ""}
+              </td>
               <td className="p-3 tabular-nums">${Number(d.amount_usd).toFixed(2)}</td>
               <td className="p-3 font-mono text-xs break-all">{d.tx_reference}</td>
-              <td className="p-3"><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${d.status === "approved" ? "bg-success/10 text-success" : d.status === "rejected" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"}`}>{d.status}</span></td>
+              <td className="p-3">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${d.status === "approved" ? "bg-success/10 text-success" : d.status === "rejected" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"}`}
+                >
+                  {d.status}
+                </span>
+              </td>
               <td className="p-3 text-right">
                 {d.status === "pending" && (
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" onClick={() => m.mutate({ id: d.id, action: "approve" })}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={() => m.mutate({ id: d.id, action: "reject" })}>Reject</Button>
+                    <Button size="sm" onClick={() => m.mutate({ id: d.id, action: "approve" })}>
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => m.mutate({ id: d.id, action: "reject" })}
+                    >
+                      Reject
+                    </Button>
                   </div>
                 )}
               </td>
@@ -378,38 +697,83 @@ function UsersPanel() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["admin-users"], queryFn: () => list() });
   const [q, setQ] = useState("");
-  const filtered = (data ?? []).filter((u: any) => u.email?.toLowerCase().includes(q.toLowerCase()));
+  const filtered = (data ?? []).filter((u: any) =>
+    u.email?.toLowerCase().includes(q.toLowerCase()),
+  );
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-users"] });
 
   return (
     <div className="mt-4 space-y-3">
-      <Input placeholder="Search by email..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+      <Input
+        placeholder="Search by email..."
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="max-w-sm"
+      />
       <Card className="p-0">
         <table className="w-full text-sm">
           <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-3">Email</th><th className="p-3">Balance</th><th className="p-3">Status</th><th className="p-3">Roles</th><th className="p-3"></th></tr>
+            <tr>
+              <th className="p-3">Email</th>
+              <th className="p-3">Balance</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Roles</th>
+              <th className="p-3"></th>
+            </tr>
           </thead>
           <tbody>
             {filtered.map((u: any) => (
               <tr key={u.id} className="border-t border-border align-top">
-                <td className="p-3"><div className="font-medium">{u.email}</div><div className="text-xs text-muted-foreground">{u.full_name}</div></td>
+                <td className="p-3">
+                  <div className="font-medium">{u.email}</div>
+                  <div className="text-xs text-muted-foreground">{u.full_name}</div>
+                </td>
                 <td className="p-3 tabular-nums">${Number(u.balance_usd).toFixed(2)}</td>
                 <td className="p-3 capitalize">{u.status}</td>
                 <td className="p-3 text-xs">{u.roles.join(", ") || "user"}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap items-center gap-1 justify-end">
-                    <AdjustBtn onSubmit={(amt) => adjust({ data: { user_id: u.id, delta_usd: amt } }).then(refresh)} />
-                    <Button size="sm" variant="outline" onClick={() => status({ data: { user_id: u.id, status: u.status === "active" ? "suspended" : "active" } }).then(refresh)}>
+                    <AdjustBtn
+                      onSubmit={(amt) =>
+                        adjust({ data: { user_id: u.id, delta_usd: amt } }).then(refresh)
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        status({
+                          data: {
+                            user_id: u.id,
+                            status: u.status === "active" ? "suspended" : "active",
+                          },
+                        }).then(refresh)
+                      }
+                    >
                       {u.status === "active" ? "Suspend" : "Activate"}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => role({ data: { user_id: u.id, role: "admin", grant: !u.roles.includes("admin") } }).then(refresh)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        role({
+                          data: { user_id: u.id, role: "admin", grant: !u.roles.includes("admin") },
+                        }).then(refresh)
+                      }
+                    >
                       {u.roles.includes("admin") ? "Revoke admin" : "Make admin"}
                     </Button>
                   </div>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No users.</td></tr>}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                  No users.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </Card>
@@ -425,9 +789,18 @@ function VerifyPricesPanel() {
   const getCountries = useServerFn(getVerifyCountries);
   const qc = useQueryClient();
 
-  const { data: priceData } = useQuery({ queryKey: ["admin-verify-prices"], queryFn: () => list() });
-  const { data: settingsData } = useQuery({ queryKey: ["public-settings"], queryFn: () => getSettings() });
-  const { data: countriesData } = useQuery({ queryKey: ["verify-countries"], queryFn: () => getCountries() });
+  const { data: priceData } = useQuery({
+    queryKey: ["admin-verify-prices"],
+    queryFn: () => list(),
+  });
+  const { data: settingsData } = useQuery({
+    queryKey: ["public-settings"],
+    queryFn: () => getSettings(),
+  });
+  const { data: countriesData } = useQuery({
+    queryKey: ["verify-countries"],
+    queryFn: () => getCountries(),
+  });
 
   const markup = Number(settingsData?.settings?.verify_markup ?? 1.5);
   const rate = Number(settingsData?.settings?.usd_to_ngn ?? 1600);
@@ -435,20 +808,56 @@ function VerifyPricesPanel() {
   function fmtNgn(usd: number) {
     return `₦${(usd * rate).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
-  function ngnToUsd(ngn: number) { return ngn / rate; }
+  function ngnToUsd(ngn: number) {
+    return ngn / rate;
+  }
 
   const [editing, setEditing] = useState<Record<string, string>>({});
-  const [newRow, setNewRow] = useState({ country: "", service: "", operator: "any", price_ngn: "" });
+  const [newRow, setNewRow] = useState({
+    country: "",
+    service: "",
+    operator: "any",
+    price_ngn: "",
+  });
   const [serviceSearch, setServiceSearch] = useState("");
 
-  const KNOWN_OPERATORS = ["any", "virtual", "virtual1", "virtual2", "virtual3", "virtual4", "virtual5", "virtual9", "virtual11", "virtual16", "virtual20", "beeline", "mts", "megafon", "tele2"];
+  const KNOWN_OPERATORS = [
+    "any",
+    "virtual",
+    "virtual1",
+    "virtual2",
+    "virtual3",
+    "virtual4",
+    "virtual5",
+    "virtual9",
+    "virtual11",
+    "virtual16",
+    "virtual20",
+    "beeline",
+    "mts",
+    "megafon",
+    "tele2",
+  ];
 
   const saveMutation = useMutation({
-    mutationFn: ({ id, service, operator, price_usd }: { id: string; service: string; operator: string; price_usd: number }) =>
-      upsert({ data: { service, operator, price_usd } }),
+    mutationFn: ({
+      id,
+      service,
+      operator,
+      price_usd,
+    }: {
+      id: string;
+      service: string;
+      operator: string;
+      price_usd: number;
+    }) => upsert({ data: { service, operator, price_usd } }),
     onSuccess: (_, vars) => {
       toast.success(`Saved ${vars.service} / ${vars.operator}`);
-      setEditing((e) => { const n = { ...e }; delete n[vars.id]; return n; });
+      setEditing((e) => {
+        const n = { ...e };
+        delete n[vars.id];
+        return n;
+      });
       qc.removeQueries({ queryKey: ["admin-verify-prices"] });
       qc.refetchQueries({ queryKey: ["admin-verify-prices"] });
     },
@@ -489,8 +898,9 @@ function VerifyPricesPanel() {
     <div className="mt-4 space-y-4">
       <Card className="p-5">
         <p className="text-sm text-muted-foreground">
-          Set your price <strong>per service + per operator</strong>. If no operator-specific price is found, falls back to the <strong>any</strong> price, then to the global {markup}x markup.
-          Enter prices in <strong>₦ Naira</strong> — stored in USD at ₦{rate}/$1.
+          Set your price <strong>per service + per operator</strong>. If no operator-specific price
+          is found, falls back to the <strong>any</strong> price, then to the global {markup}x
+          markup. Enter prices in <strong>₦ Naira</strong> — stored in USD at ₦{rate}/$1.
         </p>
       </Card>
 
@@ -508,7 +918,9 @@ function VerifyPricesPanel() {
             >
               <option value="">— All countries —</option>
               {countryOptions.map((c) => (
-                <option key={c.name} value={c.name}>{c.name.charAt(0).toUpperCase() + c.name.slice(1)}</option>
+                <option key={c.name} value={c.name}>
+                  {c.name.charAt(0).toUpperCase() + c.name.slice(1)}
+                </option>
               ))}
             </select>
           </div>
@@ -522,7 +934,9 @@ function VerifyPricesPanel() {
               onChange={(e) => setNewRow({ ...newRow, operator: e.target.value })}
             >
               {KNOWN_OPERATORS.map((op) => (
-                <option key={op} value={op}>{op}</option>
+                <option key={op} value={op}>
+                  {op}
+                </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-muted-foreground">"any" = fallback for all operators</p>
@@ -542,9 +956,13 @@ function VerifyPricesPanel() {
           <div className="w-40">
             <Label>Your price (₦)</Label>
             <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₦</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                ₦
+              </span>
               <Input
-                type="number" step="1" min="0"
+                type="number"
+                step="1"
+                min="0"
                 className="pl-7"
                 value={newRow.price_ngn}
                 onChange={(e) => setNewRow({ ...newRow, price_ngn: e.target.value })}
@@ -552,12 +970,17 @@ function VerifyPricesPanel() {
               />
             </div>
             {newRow.price_ngn && Number(newRow.price_ngn) > 0 && (
-              <p className="mt-1 text-xs text-muted-foreground">≈ ${ngnToUsd(Number(newRow.price_ngn)).toFixed(4)} USD</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                ≈ ${ngnToUsd(Number(newRow.price_ngn)).toFixed(4)} USD
+              </p>
             )}
           </div>
 
           <div className="flex items-end">
-            <Button onClick={() => addMutation.mutate()} disabled={!canAdd || addMutation.isPending}>
+            <Button
+              onClick={() => addMutation.mutate()}
+              disabled={!canAdd || addMutation.isPending}
+            >
               {addMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </div>
@@ -596,7 +1019,9 @@ function VerifyPricesPanel() {
                 </tr>
               )}
               {(priceData ?? [])
-                .filter((p: any) => !serviceSearch || p.service.includes(serviceSearch.toLowerCase()))
+                .filter(
+                  (p: any) => !serviceSearch || p.service.includes(serviceSearch.toLowerCase()),
+                )
                 .map((p: any) => {
                   const yourPrice = Number(p.price_usd);
                   const estimatedCost = yourPrice / markup;
@@ -604,40 +1029,77 @@ function VerifyPricesPanel() {
                   const isEditing = editing[p.id] !== undefined;
                   return (
                     <tr key={p.id} className="border-t border-border hover:bg-accent/30">
-                      <td className="p-3 font-medium capitalize">{p.service.replace(/_/g, " › ")}</td>
-                      <td className="p-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          p.operator === "any" ? "bg-secondary text-muted-foreground" : "bg-success/10 text-success"
-                        }`}>{p.operator ?? "any"}</span>
+                      <td className="p-3 font-medium capitalize">
+                        {p.service.replace(/_/g, " › ")}
                       </td>
-                      <td className="p-3 text-right text-warning tabular-nums">~{fmtNgn(estimatedCost)}</td>
+                      <td className="p-3">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            p.operator === "any"
+                              ? "bg-secondary text-muted-foreground"
+                              : "bg-success/10 text-success"
+                          }`}
+                        >
+                          {p.operator ?? "any"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right text-warning tabular-nums">
+                        ~{fmtNgn(estimatedCost)}
+                      </td>
                       <td className="p-3 text-right tabular-nums">
                         {isEditing ? (
                           <div className="relative ml-auto w-32">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">₦</span>
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+                              ₦
+                            </span>
                             <Input
-                              type="number" step="1" min="0"
+                              type="number"
+                              step="1"
+                              min="0"
                               className="pl-6 text-right w-full"
                               value={editing[p.id]}
                               onChange={(e) => setEditing({ ...editing, [p.id]: e.target.value })}
                             />
                           </div>
                         ) : (
-                          <button className="hover:underline text-primary"
-                            onClick={() => setEditing({ ...editing, [p.id]: String((yourPrice * rate).toFixed(0)) })}>
+                          <button
+                            className="hover:underline text-primary"
+                            onClick={() =>
+                              setEditing({
+                                ...editing,
+                                [p.id]: String((yourPrice * rate).toFixed(0)),
+                              })
+                            }
+                          >
                             {fmtNgn(yourPrice)}
                           </button>
                         )}
                       </td>
-                      <td className="p-3 text-right tabular-nums text-success">+{fmtNgn(profit)}</td>
+                      <td className="p-3 text-right tabular-nums text-success">
+                        +{fmtNgn(profit)}
+                      </td>
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-1">
                           {isEditing && (
-                            <Button size="sm" onClick={() =>
-                              saveMutation.mutate({ id: p.id, service: p.service, operator: p.operator ?? "any", price_usd: ngnToUsd(Number(editing[p.id])) })
-                            }>Save</Button>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                saveMutation.mutate({
+                                  id: p.id,
+                                  service: p.service,
+                                  operator: p.operator ?? "any",
+                                  price_usd: ngnToUsd(Number(editing[p.id])),
+                                })
+                              }
+                            >
+                              Save
+                            </Button>
                           )}
-                          <Button size="sm" variant="ghost" onClick={() => delMutation.mutate(p.id)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => delMutation.mutate(p.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -651,20 +1113,32 @@ function VerifyPricesPanel() {
       </Card>
 
       <Card className="p-4 text-xs text-muted-foreground space-y-1">
-        <p>⚡ <strong>Priority:</strong> country_service + operator → country_service + any → service + operator → service + any → global markup ({markup}x)</p>
+        <p>
+          ⚡ <strong>Priority:</strong> country_service + operator → country_service + any → service
+          + operator → service + any → global markup ({markup}x)
+        </p>
         <p>✅ All prices in ₦ Naira. Stored as USD at ₦{rate}/$1.</p>
       </Card>
     </div>
   );
-}function AdjustBtn({ onSubmit }: { onSubmit: (amt: number) => Promise<unknown> }) {
+}
+function AdjustBtn({ onSubmit }: { onSubmit: (amt: number) => Promise<unknown> }) {
   return (
-    <Button size="sm" variant="outline" onClick={() => {
-      const s = window.prompt("Amount to credit (negative to debit), e.g. 10 or -5");
-      if (!s) return;
-      const n = Number(s);
-      if (!Number.isFinite(n)) return toast.error("Invalid number");
-      onSubmit(n).then(() => toast.success("Balance updated")).catch((e) => toast.error(e?.message ?? "Failed"));
-    }}>Adjust balance</Button>
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => {
+        const s = window.prompt("Amount to credit (negative to debit), e.g. 10 or -5");
+        if (!s) return;
+        const n = Number(s);
+        if (!Number.isFinite(n)) return toast.error("Invalid number");
+        onSubmit(n)
+          .then(() => toast.success("Balance updated"))
+          .catch((e) => toast.error(e?.message ?? "Failed"));
+      }}
+    >
+      Adjust balance
+    </Button>
   );
 }
 
@@ -675,12 +1149,21 @@ function MessagesPanel() {
     <Card className="mt-4 p-0">
       <table className="w-full text-sm">
         <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
-          <tr><th className="p-3">Date</th><th className="p-3">User</th><th className="p-3">Sender</th><th className="p-3">Recipient</th><th className="p-3">Cost</th><th className="p-3">Status</th></tr>
+          <tr>
+            <th className="p-3">Date</th>
+            <th className="p-3">User</th>
+            <th className="p-3">Sender</th>
+            <th className="p-3">Recipient</th>
+            <th className="p-3">Cost</th>
+            <th className="p-3">Status</th>
+          </tr>
         </thead>
         <tbody>
           {(data ?? []).map((m: any) => (
             <tr key={m.id} className="border-t border-border">
-              <td className="p-3 whitespace-nowrap text-xs">{new Date(m.created_at).toLocaleString()}</td>
+              <td className="p-3 whitespace-nowrap text-xs">
+                {new Date(m.created_at).toLocaleString()}
+              </td>
               <td className="p-3 text-xs">{m.user_email}</td>
               <td className="p-3">{m.sender}</td>
               <td className="p-3 font-mono text-xs">{m.recipient}</td>
@@ -688,7 +1171,13 @@ function MessagesPanel() {
               <td className="p-3">{m.status}</td>
             </tr>
           ))}
-          {(data ?? []).length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No messages.</td></tr>}
+          {(data ?? []).length === 0 && (
+            <tr>
+              <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                No messages.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </Card>
@@ -701,44 +1190,315 @@ function BanksPanel() {
   const del = useServerFn(adminDeleteBankAccount);
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["admin-banks"], queryFn: () => list() });
-  const empty = { label: "", bank_name: "", account_name: "", account_number: "", extra: "", active: true };
+  const empty = {
+    label: "",
+    bank_name: "",
+    account_name: "",
+    account_number: "",
+    extra: "",
+    active: true,
+  };
   const [form, setForm] = useState<any>(empty);
   const m = useMutation({
     mutationFn: () => upsert({ data: { ...form, extra: form.extra || null } }),
-    onSuccess: () => { toast.success("Saved"); setForm(empty); qc.invalidateQueries({ queryKey: ["admin-banks"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onSuccess: () => {
+      toast.success("Saved");
+      setForm(empty);
+      qc.invalidateQueries({ queryKey: ["admin-banks"] });
+      qc.invalidateQueries({ queryKey: ["public-settings"] });
+    },
     onError: (e: any) => toast.error(e?.message),
   });
   const dm = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-banks"] }); qc.invalidateQueries({ queryKey: ["public-settings"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-banks"] });
+      qc.invalidateQueries({ queryKey: ["public-settings"] });
+    },
   });
   return (
     <div className="mt-4 grid gap-4 md:grid-cols-2">
       <Card className="space-y-3 p-5">
         <h3 className="font-semibold">Add bank account</h3>
-        <div><Label>Label (shown to users)</Label><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="USD Wire — Primary" /></div>
-        <div><Label>Bank name</Label><Input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="Chase Bank" /></div>
-        <div><Label>Account name</Label><Input value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} placeholder="My Company LLC" /></div>
-        <div><Label>Account number</Label><Input value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} className="font-mono" /></div>
-        <div><Label>Extra info (routing, IBAN, SWIFT, memo)</Label><Textarea rows={2} value={form.extra} onChange={(e) => setForm({ ...form, extra: e.target.value })} /></div>
-        <Button onClick={() => m.mutate()} disabled={!form.label || !form.bank_name || !form.account_name || !form.account_number || m.isPending}>Add</Button>
+        <div>
+          <Label>Label (shown to users)</Label>
+          <Input
+            value={form.label}
+            onChange={(e) => setForm({ ...form, label: e.target.value })}
+            placeholder="USD Wire — Primary"
+          />
+        </div>
+        <div>
+          <Label>Bank name</Label>
+          <Input
+            value={form.bank_name}
+            onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+            placeholder="Chase Bank"
+          />
+        </div>
+        <div>
+          <Label>Account name</Label>
+          <Input
+            value={form.account_name}
+            onChange={(e) => setForm({ ...form, account_name: e.target.value })}
+            placeholder="My Company LLC"
+          />
+        </div>
+        <div>
+          <Label>Account number</Label>
+          <Input
+            value={form.account_number}
+            onChange={(e) => setForm({ ...form, account_number: e.target.value })}
+            className="font-mono"
+          />
+        </div>
+        <div>
+          <Label>Extra info (routing, IBAN, SWIFT, memo)</Label>
+          <Textarea
+            rows={2}
+            value={form.extra}
+            onChange={(e) => setForm({ ...form, extra: e.target.value })}
+          />
+        </div>
+        <Button
+          onClick={() => m.mutate()}
+          disabled={
+            !form.label ||
+            !form.bank_name ||
+            !form.account_name ||
+            !form.account_number ||
+            m.isPending
+          }
+        >
+          Add
+        </Button>
       </Card>
       <Card className="p-5">
         <h3 className="mb-3 font-semibold">Existing accounts</h3>
         <ul className="space-y-2">
           {(data ?? []).map((b: any) => (
-            <li key={b.id} className="flex items-start justify-between gap-2 rounded border border-border p-2 text-sm">
+            <li
+              key={b.id}
+              className="flex items-start justify-between gap-2 rounded border border-border p-2 text-sm"
+            >
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">{b.label} {!b.active && <span className="text-xs text-muted-foreground">(inactive)</span>}</div>
-                <div className="text-xs text-muted-foreground">{b.bank_name} · {b.account_name}</div>
+                <div className="font-semibold">
+                  {b.label}{" "}
+                  {!b.active && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {b.bank_name} · {b.account_name}
+                </div>
                 <div className="break-all font-mono text-xs">{b.account_number}</div>
-                {b.extra && <div className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{b.extra}</div>}
+                {b.extra && (
+                  <div className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                    {b.extra}
+                  </div>
+                )}
               </div>
-              <Button variant="ghost" size="sm" onClick={() => dm.mutate(b.id)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" onClick={() => dm.mutate(b.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </li>
           ))}
           {(data ?? []).length === 0 && <li className="text-sm text-muted-foreground">None.</li>}
         </ul>
+      </Card>
+    </div>
+  );
+}
+
+function SmmPanel() {
+  const getBalance = useServerFn(adminGetSmmBalance);
+  const listOrders = useServerFn(adminListSmmOrders);
+  const listPrices = useServerFn(adminListSmmPrices);
+  const upsertPrice = useServerFn(adminUpsertSmmPrice);
+  const deletePrice = useServerFn(adminDeleteSmmPrice);
+  const qc = useQueryClient();
+
+  const { data: balance } = useQuery({
+    queryKey: ["admin-smm-balance"],
+    queryFn: () => getBalance(),
+  });
+  const { data: orders = [] } = useQuery({
+    queryKey: ["admin-smm-orders"],
+    queryFn: () => listOrders(),
+  });
+  const { data: prices = [] } = useQuery({
+    queryKey: ["admin-smm-prices"],
+    queryFn: () => listPrices(),
+  });
+
+  const [newPrice, setNewPrice] = useState({ service_id: "", price_per_1000_usd: "" });
+
+  const addPriceMutation = useMutation({
+    mutationFn: () =>
+      upsertPrice({
+        data: {
+          service_id: newPrice.service_id.trim(),
+          price_per_1000_usd: Number(newPrice.price_per_1000_usd),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Saved");
+      setNewPrice({ service_id: "", price_per_1000_usd: "" });
+      qc.invalidateQueries({ queryKey: ["admin-smm-prices"] });
+    },
+    onError: (e: any) => toast.error(e?.message),
+  });
+
+  const delPriceMutation = useMutation({
+    mutationFn: (id: string) => deletePrice({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-smm-prices"] }),
+    onError: (e: any) => toast.error(e?.message),
+  });
+
+  const canAdd = newPrice.service_id.trim() && Number(newPrice.price_per_1000_usd) >= 0;
+
+  return (
+    <div className="mt-4 space-y-4">
+      <Card className="p-5">
+        <h3 className="mb-1 font-semibold">Panel balance</h3>
+        {!balance ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : !balance.configured ? (
+          <p className="text-sm text-muted-foreground">
+            Add your provider's key as a secret named <code>SMM_API_KEY</code> to connect a panel.
+          </p>
+        ) : "error" in balance && balance.error ? (
+          <p className="text-sm text-destructive">{balance.error}</p>
+        ) : (
+          <p className="text-2xl font-bold tabular-nums">
+            {balance.balance}{" "}
+            <span className="text-sm font-normal text-muted-foreground">{balance.currency}</span>
+          </p>
+        )}
+        <p className="mt-1 text-xs text-muted-foreground">
+          This is your remaining credit with the connected SMM provider, not your users' balances.
+        </p>
+      </Card>
+
+      <Card className="p-5">
+        <h3 className="mb-3 font-semibold">Per-service price overrides</h3>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Find a service's ID by checking the provider's service list (or the browser network tab on
+          the Grow Socials page). If no override exists, the global markup multiplier (set under
+          Funding &amp; Pricing) applies to the provider's rate.
+        </p>
+        <div className="mb-4 flex flex-wrap gap-3">
+          <div className="w-40">
+            <Label>Service ID</Label>
+            <Input
+              value={newPrice.service_id}
+              onChange={(e) => setNewPrice({ ...newPrice, service_id: e.target.value })}
+              placeholder="e.g. 1234"
+            />
+          </div>
+          <div className="w-48">
+            <Label>Price per 1000 (USD)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={newPrice.price_per_1000_usd}
+              onChange={(e) => setNewPrice({ ...newPrice, price_per_1000_usd: e.target.value })}
+              placeholder="e.g. 1.50"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              onClick={() => addPriceMutation.mutate()}
+              disabled={!canAdd || addPriceMutation.isPending}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="p-2">Service ID</th>
+                <th className="p-2 text-right">Price / 1000</th>
+                <th className="p-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(prices as any[]).map((p) => (
+                <tr key={p.id} className="border-t border-border">
+                  <td className="p-2 font-mono">{p.service_id}</td>
+                  <td className="p-2 text-right tabular-nums">
+                    ${Number(p.price_per_1000_usd).toFixed(4)}
+                  </td>
+                  <td className="p-2 text-right">
+                    <Button size="sm" variant="ghost" onClick={() => delPriceMutation.mutate(p.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {(prices as any[]).length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-muted-foreground">
+                    No overrides — global markup applies to all services.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <h3 className="mb-3 font-semibold">Recent orders</h3>
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="p-2">User</th>
+                <th className="p-2">Service</th>
+                <th className="p-2">Link</th>
+                <th className="p-2 text-right">Qty</th>
+                <th className="p-2 text-right">Charge</th>
+                <th className="p-2">Status</th>
+                <th className="p-2">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(orders as any[]).map((o) => (
+                <tr key={o.id} className="border-t border-border">
+                  <td className="p-2">{o.user_email}</td>
+                  <td className="p-2">{o.service_name}</td>
+                  <td className="p-2 max-w-[200px] truncate">
+                    <a
+                      href={o.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {o.link}
+                    </a>
+                  </td>
+                  <td className="p-2 text-right tabular-nums">{o.quantity}</td>
+                  <td className="p-2 text-right tabular-nums">
+                    ${Number(o.charge_usd).toFixed(4)}
+                  </td>
+                  <td className="p-2 capitalize">{o.status}</td>
+                  <td className="p-2 text-xs text-muted-foreground">
+                    {new Date(o.created_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+              {(orders as any[]).length === 0 && (
+                <tr>
+                  <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                    No orders yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );
