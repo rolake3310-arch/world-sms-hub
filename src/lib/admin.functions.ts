@@ -3,7 +3,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+  const { data, error } = await ctx.supabase.rpc("has_role", {
+    _user_id: ctx.userId,
+    _role: "admin",
+  });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Forbidden");
 }
@@ -19,7 +22,8 @@ export const adminGetStats = createServerFn({ method: "GET" })
       supabaseAdmin.from("deposits").select("amount_usd, status"),
     ]);
     const revenue = (sms.data ?? []).reduce((s, r: any) => s + Number(r.cost_usd), 0);
-    const approved = (deposits.data ?? []).filter((d: any) => d.status === "approved")
+    const approved = (deposits.data ?? [])
+      .filter((d: any) => d.status === "approved")
       .reduce((s, r: any) => s + Number(r.amount_usd), 0);
     const pending = (deposits.data ?? []).filter((d: any) => d.status === "pending").length;
     return {
@@ -48,6 +52,9 @@ const SettingsInput = z.object({
   telegram_popup_title: z.string().max(100),
   telegram_popup_subtitle: z.string().max(200),
   telegram_popup_body: z.string().max(500),
+  smm_enabled: z.boolean(),
+  smm_api_url: z.string().min(1).max(300),
+  smm_markup: z.number().min(1).max(100),
 });
 
 export const adminUpdateSettings = createServerFn({ method: "POST" })
@@ -55,10 +62,13 @@ export const adminUpdateSettings = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SettingsInput.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { error } = await context.supabase.from("app_settings").update({
-      ...data,
-      updated_at: new Date().toISOString(),
-    } as any).eq("id", 1);
+    const { error } = await context.supabase
+      .from("app_settings")
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq("id", 1);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -80,9 +90,7 @@ export const adminUpsertBankAccount = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { id, ...payload } = data;
     const tbl = context.supabase.from("bank_accounts" as any);
-    const { error } = id
-      ? await tbl.update(payload).eq("id", id)
-      : await tbl.insert(payload);
+    const { error } = id ? await tbl.update(payload).eq("id", id) : await tbl.insert(payload);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -92,7 +100,10 @@ export const adminDeleteBankAccount = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { error } = await context.supabase.from("bank_accounts" as any).delete().eq("id", data.id);
+    const { error } = await context.supabase
+      .from("bank_accounts" as any)
+      .delete()
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -101,10 +112,12 @@ export const adminListBankAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
-    const { data } = await context.supabase.from("bank_accounts" as any).select("*").order("created_at");
+    const { data } = await context.supabase
+      .from("bank_accounts" as any)
+      .select("*")
+      .order("created_at");
     return (data ?? []) as any[];
   });
-
 
 const WalletInput = z.object({
   id: z.string().uuid().optional(),
@@ -172,7 +185,10 @@ export const adminDeleteCountryPrice = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ country_code: z.string().length(2) }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { error } = await context.supabase.from("country_prices").delete().eq("country_code", data.country_code);
+    const { error } = await context.supabase
+      .from("country_prices")
+      .delete()
+      .eq("country_code", data.country_code);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -183,11 +199,17 @@ export const adminListDeposits = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: deposits } = await supabaseAdmin
-      .from("deposits").select("*").order("created_at", { ascending: false }).limit(200);
+      .from("deposits")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
     const userIds = Array.from(new Set((deposits ?? []).map((d) => d.user_id)));
     let emails = new Map<string, string>();
     if (userIds.length) {
-      const { data: profs } = await supabaseAdmin.from("profiles").select("id, email").in("id", userIds);
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
       emails = new Map((profs ?? []).map((p) => [p.id, p.email]));
     }
     return (deposits ?? []).map((d) => ({ ...d, user_email: emails.get(d.user_id) ?? "" }));
@@ -205,19 +227,28 @@ export const adminReviewDeposit = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: dep, error: fErr } = await supabaseAdmin.from("deposits")
-      .select("id, user_id, amount_usd, status").eq("id", data.id).maybeSingle();
+    const { data: dep, error: fErr } = await supabaseAdmin
+      .from("deposits")
+      .select("id, user_id, amount_usd, status")
+      .eq("id", data.id)
+      .maybeSingle();
     if (fErr || !dep) throw new Error("Deposit not found");
     if (dep.status !== "pending") throw new Error("Already reviewed");
     if (data.action === "approve") {
-      await supabaseAdmin.rpc("credit_balance", { _user_id: dep.user_id, _amount: Number(dep.amount_usd) });
+      await supabaseAdmin.rpc("credit_balance", {
+        _user_id: dep.user_id,
+        _amount: Number(dep.amount_usd),
+      });
     }
-    const { error } = await supabaseAdmin.from("deposits").update({
-      status: data.action === "approve" ? "approved" : "rejected",
-      reviewed_by: context.userId,
-      reviewed_at: new Date().toISOString(),
-      notes: data.notes ?? null,
-    }).eq("id", data.id);
+    const { error } = await supabaseAdmin
+      .from("deposits")
+      .update({
+        status: data.action === "approve" ? "approved" : "rejected",
+        reviewed_by: context.userId,
+        reviewed_at: new Date().toISOString(),
+        notes: data.notes ?? null,
+      })
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -227,9 +258,11 @@ export const adminListUsers = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: profiles } = await supabaseAdmin.from("profiles")
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
       .select("id, email, full_name, balance_usd, status, created_at")
-      .order("created_at", { ascending: false }).limit(500);
+      .order("created_at", { ascending: false })
+      .limit(500);
     const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
     const roleMap = new Map<string, string[]>();
     (roles ?? []).forEach((r) => {
@@ -258,36 +291,49 @@ export const adminAdjustBalance = createServerFn({ method: "POST" })
 
 export const adminSetUserStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    user_id: z.string().uuid(),
-    status: z.enum(["active", "suspended"]),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        status: z.enum(["active", "suspended"]),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("profiles").update({ status: data.status }).eq("id", data.user_id);
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ status: data.status })
+      .eq("id", data.user_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const adminSetUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    user_id: z.string().uuid(),
-    role: z.enum(["admin", "user"]),
-    grant: z.boolean(),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        role: z.enum(["admin", "user"]),
+        grant: z.boolean(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.grant) {
-      await supabaseAdmin.from("user_roles").upsert(
-        { user_id: data.user_id, role: data.role },
-        { onConflict: "user_id,role" },
-      );
+      await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: data.user_id, role: data.role }, { onConflict: "user_id,role" });
     } else {
-      await supabaseAdmin.from("user_roles").delete()
-        .eq("user_id", data.user_id).eq("role", data.role);
+      await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", data.user_id)
+        .eq("role", data.role);
     }
     return { ok: true };
   });
@@ -297,17 +343,22 @@ export const adminListMessages = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: msgs } = await supabaseAdmin.from("sms_messages")
-      .select("*").order("created_at", { ascending: false }).limit(200);
+    const { data: msgs } = await supabaseAdmin
+      .from("sms_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
     const userIds = Array.from(new Set((msgs ?? []).map((m) => m.user_id)));
     let emails = new Map<string, string>();
     if (userIds.length) {
-      const { data: profs } = await supabaseAdmin.from("profiles").select("id, email").in("id", userIds);
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
       emails = new Map((profs ?? []).map((p) => [p.id, p.email]));
     }
     return (msgs ?? []).map((m) => ({ ...m, user_email: emails.get(m.user_id) ?? "" }));
   });
-
 
 // ── Verify Prices ─────────────────────────────────────────────────────────────
 export const adminListVerifyPrices = createServerFn({ method: "GET" })
@@ -332,12 +383,14 @@ export const adminUpsertVerifyPrice = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => VerifyPriceInput.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { error } = await context.supabase
-      .from("verify_prices" as any)
-      .upsert(
-        { service: data.service.toLowerCase(), operator: data.operator.toLowerCase(), price_usd: data.price_usd },
-        { onConflict: "service,operator", ignoreDuplicates: false }
-      );
+    const { error } = await context.supabase.from("verify_prices" as any).upsert(
+      {
+        service: data.service.toLowerCase(),
+        operator: data.operator.toLowerCase(),
+        price_usd: data.price_usd,
+      },
+      { onConflict: "service,operator", ignoreDuplicates: false },
+    );
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -349,6 +402,95 @@ export const adminDeleteVerifyPrice = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { error } = await context.supabase
       .from("verify_prices" as any)
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ── SMM (social growth) ──────────────────────────────────────────────────────
+export const adminGetSmmBalance = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const key = process.env.SMM_API_KEY;
+    if (!key) return { configured: false as const };
+    const { data: settings } = await context.supabase
+      .from("app_settings")
+      .select("smm_api_url")
+      .eq("id", 1)
+      .maybeSingle();
+    const baseUrl = (settings as any)?.smm_api_url || "https://justanotherpanel.com/api/v2";
+    try {
+      const resp = await fetch(baseUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ key, action: "balance" }).toString(),
+      });
+      const json = await resp.json();
+      return { configured: true as const, balance: json?.balance, currency: json?.currency };
+    } catch (e: any) {
+      return { configured: true as const, error: e.message ?? "Failed to reach provider" };
+    }
+  });
+
+export const adminListSmmOrders = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: orders } = await supabaseAdmin
+      .from("smm_orders" as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    const userIds = Array.from(new Set((orders ?? []).map((o: any) => o.user_id)));
+    let emails = new Map<string, string>();
+    if (userIds.length) {
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
+      emails = new Map((profs ?? []).map((p) => [p.id, p.email]));
+    }
+    return (orders ?? []).map((o: any) => ({ ...o, user_email: emails.get(o.user_id) ?? "" }));
+  });
+
+export const adminListSmmPrices = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data } = await context.supabase
+      .from("smm_prices" as any)
+      .select("id, service_id, price_per_1000_usd, created_at")
+      .order("created_at", { ascending: false });
+    return (data ?? []) as any[];
+  });
+
+const SmmPriceInput = z.object({
+  service_id: z.string().min(1).max(80),
+  price_per_1000_usd: z.number().min(0).max(100000),
+});
+
+export const adminUpsertSmmPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SmmPriceInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("smm_prices" as any)
+      .upsert(data, { onConflict: "service_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminDeleteSmmPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("smm_prices" as any)
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
